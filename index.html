@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Talabat Image Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --org:#FF6B35;--red:#E8192C;
+  --bg:#1a1a1f;--card:#22222a;--card2:#2a2a35;--inp:#2f2f3d;
+  --b:#38384a;--b2:#44445a;
+  --t1:#f0f0f4;--t2:#9999b0;--t3:#5a5a72;
+  --r:12px;--rs:8px;
+}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;padding-bottom:4rem}
+
+/* Header */
+.header{background:var(--card);border-bottom:1px solid var(--b);padding:0 2rem;height:70px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hl{display:flex;align-items:center;gap:14px}
+.logo{width:52px;height:52px;object-fit:contain;animation:glow 3s ease-in-out infinite}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 8px rgba(232,25,44,.4))}50%{filter:drop-shadow(0 0 18px rgba(232,25,44,.85))}}
+.logo-text{font-size:36px;font-weight:800;letter-spacing:-1px;color:var(--org)}
+.user-badge{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.user-badge .name{font-size:13px;font-weight:700;color:var(--t1)}
+.user-badge .team{font-size:10px;color:var(--org);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+
+/* Hero */
+.hero{text-align:center;padding:3rem 2rem 1.5rem;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:600px;height:320px;background:radial-gradient(ellipse,rgba(232,25,44,.1) 0%,transparent 70%);pointer-events:none}
+.hero h1{font-size:26px;font-weight:700;color:#fff;margin-bottom:8px;letter-spacing:-.5px}
+.hero h1 span{color:var(--org)}
+.hero p{font-size:14px;color:var(--t2);max-width:520px;margin:0 auto;line-height:1.7}
+
+/* Section labels */
+.section-label{display:flex;align-items:center;gap:10px;margin:2rem 0 .75rem}
+.section-label .num{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--org));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.section-label h2{font-size:15px;font-weight:700;color:var(--t1)}
+.section-label p{font-size:12px;color:var(--t2);margin-top:1px}
+
+/* Divider */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--b),transparent);margin:2rem 0}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--b);border-radius:var(--r);padding:1.25rem 1.5rem;margin-bottom:1rem;transition:border-color .2s}
+.card:hover{border-color:var(--b2)}
+
+/* Container */
+.wrap{max-width:940px;margin:0 auto;padding:0 1.5rem}
+
+/* Prompt Builder rows */
+.pb-row{display:grid;grid-template-columns:28px 1fr 1fr 36px;gap:8px;align-items:center;margin-bottom:8px}
+.pb-preview{font-size:11px;color:var(--t2);line-height:1.6;background:var(--inp);padding:6px 10px;border-radius:6px;margin:0 0 10px 36px;word-break:break-word;border-left:2px solid var(--org)}
+.pb-empty{color:var(--t3);font-style:italic}
+input.fi,select.fi{width:100%;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);font-size:13px;background:var(--inp);color:var(--t1);outline:none;transition:border-color .15s;appearance:none}
+input.fi:focus,select.fi:focus{border-color:var(--org)}
+input.fi::placeholder{color:var(--t3)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--b);background:var(--card2);color:var(--t1);transition:all .15s}
+.btn:hover{border-color:var(--b2);background:#33333f}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-primary{background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;box-shadow:0 4px 18px rgba(232,25,44,.3)}
+.btn-primary:hover{box-shadow:0 6px 24px rgba(232,25,44,.5);border:none;filter:brightness(1.08)}
+.btn-org{background:rgba(255,107,53,.1);color:var(--org);border-color:rgba(255,107,53,.3)}
+.btn-org:hover{background:rgba(255,107,53,.2)}
+.btn-stop{background:rgba(232,25,44,.1);color:var(--red);border-color:rgba(232,25,44,.3)}
+.btn-stop:hover{background:rgba(232,25,44,.2)}
+.btn-icon{width:32px;height:32px;border-radius:6px;border:1px solid var(--b);background:var(--inp);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .15s;flex-shrink:0}
+.btn-icon:hover{background:rgba(255,107,53,.15);color:var(--org);border-color:var(--org)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* Upload zone */
+.upload-zone{border:1.5px dashed var(--b);border-radius:var(--rs);padding:2rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--inp)}
+.upload-zone:hover{border-color:var(--red);background:rgba(232,25,44,.04)}
+.upload-zone.dragover{border-color:var(--org);background:rgba(255,107,53,.06)}
+.upload-zone p{font-size:13px;color:var(--t2);margin-bottom:4px}
+.upload-zone small{font-size:11px;color:var(--t3)}
+.sample-link{display:inline-block;margin-top:10px;font-size:12px;color:var(--org);cursor:pointer;border-bottom:1px dashed rgba(255,107,53,.4);padding-bottom:1px}
+.sample-link:hover{color:#fff;border-color:#fff}
+#fileInput{display:none}
+
+/* Settings */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border-radius:var(--rs)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;color:var(--t3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b);background:var(--card2)}
+td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--t1)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t2);font-size:12px}
+
+/* Progress */
+.prog-wrap{background:var(--inp);border-radius:100px;height:6px;margin:10px 0;overflow:hidden}
+.prog-bar{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--red),var(--org));width:0%;transition:width .4s;box-shadow:0 0 10px rgba(232,25,44,.5)}
+.prog-label{font-size:13px;color:var(--t2);margin-bottom:6px}
+.stat-row{display:flex;gap:20px;font-size:13px;color:var(--t2);margin-top:8px;flex-wrap:wrap}
+
+/* Results */
+.res-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:1rem}
+.res-item{border-radius:var(--rs);overflow:hidden;border:1px solid var(--b);background:var(--card2);transition:border-color .2s,transform .2s;animation:fadeUp .35s ease forwards;opacity:0}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.res-item:hover{border-color:var(--org);transform:translateY(-2px)}
+.res-item img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block}
+.res-label{padding:7px 10px;font-size:12px;font-weight:500;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--b)}
+.res-label a{font-size:11px;color:var(--org);text-decoration:none;font-weight:600}
+.res-label a:hover{color:#fff}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600}
+.b-ok{background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.2)}
+.b-err{background:rgba(232,25,44,.12);color:#ff6b7a;border:1px solid rgba(232,25,44,.2)}
+.b-pend{background:rgba(255,107,53,.12);color:var(--org);border:1px solid rgba(255,107,53,.2)}
+
+/* Hint box */
+.hint{font-size:12px;color:var(--t3);background:var(--inp);border-radius:6px;padding:8px 12px;border-left:3px solid var(--org);margin-top:10px;line-height:1.6}
+
+/* Hidden */
+.hidden{display:none!important}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--b);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="header">
+  <div class="hl">
+    <img class="logo" src="data:image/png;base64,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" alt="Talabat">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+      <span class="logo-text">talabat</span>
+      <span style="font-size:9px;font-weight:600;color:rgba(255,255,255,.75);letter-spacing:.08em;text-transform:uppercase">Andro ss Youssef</span>
+    </div>
+  </div>
+  <button onclick="resetAll()" title="Refresh — Start new session" style="position:absolute;right:1.75rem;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:4px;transition:all .2s;opacity:.85" onmouseover="this.style.opacity='1';this.querySelector('img').style.boxShadow='0 0 22px rgba(255,107,53,.7)';this.querySelector('img').style.transform='scale(1.08)'" onmouseout="this.style.opacity='.85';this.querySelector('img').style.boxShadow='0 4px 14px rgba(255,107,53,.35)';this.querySelector('img').style.transform='scale(1)'">
+    <img src="data:image/png;base64,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" style="width:42px;height:42px;border-radius:12px;object-fit:cover;box-shadow:0 4px 14px rgba(255,107,53,.35);transition:all .25s">
+    <span style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.55)">Refresh</span>
+  </button>
+</header>
+
+<!-- ═══ HERO ═══ -->
+<div class="hero">
+  <h1><span style="font-family:'Nunito',sans-serif;font-weight:900;font-size:1.3em;letter-spacing:-1px;color:var(--org)">talabat</span> <span>Image Generator</span></h1>
+  <p>Build prompts from item names, generate professional food images, and download everything as a ZIP — all in one page.</p>
+</div>
+
+<div class="wrap">
+
+<!-- ══ A & B SIDE BY SIDE ══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start">
+
+  <!-- A -->
+  <div>
+    <div class="section-label"><div class="num">A</div><div><h2>Prompt Builder</h2><p>Type item names → prompts generate instantly.</p></div></div>
+    <div class="card">
+      <div id="pbRows"></div>
+      <div class="actions" style="margin-top:4px">
+        <button class="btn" onclick="addPbRow()">+ Add row</button>
+        <button class="btn btn-org" onclick="clearAllRows()">✕ Clear all</button>
+      </div>
+    </div>
+    <div class="card hidden" id="pbPreviewCard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px">
+        <span style="font-size:14px;font-weight:600">Prompts ready <span id="pbCount" style="color:var(--org)"></span></span>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="loadIntoGenerator()">▶ Load into generator ↓</button>
+          <button class="btn btn-org" onclick="exportCSV()">⬇ Export CSV</button>
+        </div>
+      </div>
+      <div id="pbPreviewList"></div>
+      <div class="hint">💡 Click <strong>"Load into generator"</strong> — no CSV needed.</div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div>
+    <div class="section-label"><div class="num">B</div><div><h2>Or upload CSV / Excel</h2><p>Already have item_name and prompt columns? Upload directly.</p></div></div>
+    <div class="card">
+      <div class="upload-zone" id="uploadZone">
+        <div style="font-size:32px;margin-bottom:8px">📂</div>
+        <p>Drop your CSV or Excel file here, or click to browse</p>
+        <small>Required columns: <strong style="color:var(--t1)">item_name</strong> and <strong style="color:var(--t1)">prompt</strong></small><br>
+        <span class="sample-link" id="dlSample">⬇ Download sample CSV</span>
+      </div>
+      <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+    </div>
+  </div>
+
+</div>
+
+<div class="divider"></div>
+
+<!-- ══════════════════════════════════════
+     SECTION C — LOADED ITEMS
+══════════════════════════════════════ -->
+<div class="hidden" id="itemsSection">
+  <div class="section-label">
+    <div class="num">C</div>
+    <div>
+      <h2>Items ready — <span id="itemCount">0</span> items loaded</h2>
+      <p>Review your items before generating.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Item name</th><th>Prompt</th><th>Status</th></tr></thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION D — SETTINGS + GENERATE
+══════════════════════════════════════ -->
+<div class="hidden" id="genSection">
+  <div class="section-label">
+    <div class="num">D</div>
+    <div>
+      <h2>Settings &amp; Generate</h2>
+      <p>Configure output then start generating.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sg" style="margin-bottom:1.25rem">
+      <div class="field"><label>Width (px)</label><input type="number" class="fi" id="imgWidth" value="810" min="256" max="1920"></div>
+      <div class="field"><label>Height (px)</label><input type="number" class="fi" id="imgHeight" value="540" min="256" max="1080"></div>
+      <div class="field"><label>Model</label>
+        <select class="fi" id="modelSelect">
+          <option value="flux-realism">FLUX Realism (recommended)</option>
+          <option value="flux">FLUX</option>
+          <option value="turbo">Turbo (faster)</option>
+        </select>
+      </div>
+      <div class="field"><label>Delay between images (sec)</label><input type="number" class="fi" id="delaySec" value="1" min="1" max="30"></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="startBtn">▶ Start generating</button>
+      <button class="btn btn-stop hidden" id="stopBtn">⏹ Stop</button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="card hidden" id="progressCard">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="prog-label" id="progLabel" style="margin-bottom:0">Waiting...</div>
+      <div style="font-size:13px;font-weight:800;color:var(--org)" id="progPct">0%</div>
+    </div>
+    <div class="prog-wrap"><div class="prog-bar" id="progBar"></div></div>
+    <div class="stat-row">
+      <span>✅ Done: <strong id="cDone" style="color:#4ade80">0</strong></span>
+      <span>❌ Failed: <strong id="cFail" style="color:var(--red)">0</strong></span>
+      <span>⏳ Left: <strong id="cLeft" style="color:var(--org)">0</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION E — RESULTS
+══════════════════════════════════════ -->
+<div class="hidden" id="resultsSection">
+  <div class="divider"></div>
+  <div class="section-label">
+    <div class="num">E</div>
+    <div><h2>Results</h2><p>Images appear here as they generate.</p></div>
+  </div>
+  <div class="card">
+    <div class="actions" style="margin-bottom:1rem">
+      <button class="btn btn-org" id="dlZipBtn">⬇ Download all as ZIP</button>
+    </div>
+    <div class="res-grid" id="resGrid"></div>
+  </div>
+</div>
+
+
+<div class="divider"></div>
+
+<!-- F G I SIDE BY SIDE -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;margin-bottom:1.25rem">
+
+  <!-- F: LOGO 200x200 -->
+  <div>
+    <div class="section-label"><div class="num">F</div><div><h2>Logo Resizer</h2><p>Drop a logo — get 200×200px</p></div></div>
+    <div class="card">
+      <div id="rzZone" style="border:1.5px dashed rgba(255,107,53,.25);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;background:rgba(255,107,53,.02);transition:all .2s" onclick="document.getElementById('rzInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--org)'" ondragleave="this.style.borderColor='rgba(255,107,53,.25)'" ondrop="event.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';handleRzDrop(event.dataTransfer.files[0])">
+        <div style="font-size:28px;margin-bottom:6px">🖼️</div>
+        <p style="font-size:12px;color:var(--t2)">Click or drop image/PDF</p>
+        <small style="font-size:10px;color:var(--t3)">PNG · JPG · WebP · PDF</small>
+      </div>
+      <input type="file" id="rzInput" accept="image/*,.pdf" style="display:none" onchange="loadRzFile(this.files[0])">
+      <div id="rzPrev" style="display:none;margin-top:10px;text-align:center">
+        <img id="rzImg2" style="max-width:100%;max-height:100px;border-radius:6px;border:1px solid var(--b);object-fit:contain">
+        <div id="rzSize" style="font-size:10px;color:var(--t2);margin-top:4px"></div>
+      </div>
+      <div style="margin:10px 0;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.1em">Output</span>
+        <span style="font-size:13px;font-weight:800;color:var(--org)">200 × 200 px</span>
+      </div>
+<input type="hidden" id="rzFmt" value="image/jpeg">
+      <div style="margin-bottom:8px"><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:4px">Background</label><select id="rzBg" style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:#111120;color:#f0f0f6;font-size:13px;outline:none"><option value="transparent">Transparent</option><option value="white">White</option><option value="black">Black</option><option value="orange">Talabat Orange</option></select></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);cursor:pointer;margin-bottom:10px"><input type="checkbox" id="rzCrop" style="accent-color:var(--org)"> ✂️ Trim whitespace</label>
+      <button id="rzBtn" onclick="doResize('rz',200,200,'rzFmt','rzBg','rzCrop','talabat_logo')" disabled style="width:100%;padding:9px;border-radius:8px;background:linear-gradient(135deg,#E8192C,#FF6B35);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;opacity:.4">⚡ Resize & Download</button>
+      <div id="rzOk" style="display:none;margin-top:8px;font-size:11px;padding:7px 10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:6px;color:#4ade80"></div>
+    </div>
+  </div>
+
+  <!-- G: COVER 750x300 -->
+  <div>
+    <div class="section-label"><div class="num">G</div><div><h2>Cover Resizer</h2><p>Drop a cover — get 750×300px</p></div></div>
+    <div class="card">
+      <div id="cvZone" style="border:1.5px dashed rgba(255,107,53,.25);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;background:rgba(255,107,53,.02);transition:all .2s" onclick="document.getElementById('cvInput').click()" ondragover="event.preventDefault();this.style.borderColor='var(--org)'" ondragleave="this.style.borderColor='rgba(255,107,53,.25)'" ondrop="event.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';handleCvDrop(event.dataTransfer.files[0])">
+        <div style="font-size:28px;margin-bottom:6px">🖼️</div>
+        <p style="font-size:12px;color:var(--t2)">Click or drop image/PDF</p>
+        <small style="font-size:10px;color:var(--t3)">PNG · JPG · WebP · PDF</small>
+      </div>
+      <input type="file" id="cvInput" accept="image/*,.pdf" style="display:none" onchange="loadCvFile(this.files[0])">
+      <div id="cvPrev" style="display:none;margin-top:10px;text-align:center">
+        <img id="cvImg2" style="max-width:100%;max-height:100px;border-radius:6px;border:1px solid var(--b);object-fit:contain">
+        <div id="cvSize" style="font-size:10px;color:var(--t2);margin-top:4px"></div>
+      </div>
+      <div style="margin:10px 0;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.1em">Output</span>
+        <span style="font-size:13px;font-weight:800;color:var(--org)">750 × 300 px</span>
+      </div>
+<input type="hidden" id="cvFmt" value="image/jpeg">
+      <div style="margin-bottom:8px"><label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:4px">Background</label><select id="cvBg" style="width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:#111120;color:#f0f0f6;font-size:13px;outline:none"><option value="white">White</option><option value="transparent">Transparent</option><option value="black">Black</option><option value="orange">Talabat Orange</option></select></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);cursor:pointer;margin-bottom:10px"><input type="checkbox" id="cvCrop" style="accent-color:var(--org)"> ✂️ Trim whitespace</label>
+      <button id="cvBtn" onclick="doResize('cv',750,300,'cvFmt','cvBg','cvCrop','talabat_cover')" disabled style="width:100%;padding:9px;border-radius:8px;background:linear-gradient(135deg,#E8192C,#FF6B35);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;opacity:.4">⚡ Resize & Download</button>
+      <div id="cvOk" style="display:none;margin-top:8px;font-size:11px;padding:7px 10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:6px;color:#4ade80"></div>
+    </div>
+  </div>
+
+
+
+</div>
+
+<!-- J BG REMOVER - full width -->
+<div class="divider"></div>
+<div class="section-label">
+  <div class="num">J</div>
+  <div>
+    <h2>Background Remover</h2>
+    <p>Remove background & shadows from any image — runs fully in your browser, no upload needed.</p>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+
+  <!-- Upload -->
+  <div class="card">
+    <div id="bgZone" style="border:1.5px dashed rgba(255,107,53,.25);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;background:rgba(255,107,53,.02);transition:all .2s"
+      onclick="document.getElementById('bgInput').click()"
+      ondragover="event.preventDefault();this.style.borderColor='var(--org)'"
+      ondragleave="this.style.borderColor='rgba(255,107,53,.25)'"
+      ondrop="event.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';bgLoadFile(event.dataTransfer.files[0])">
+      <div style="font-size:36px;margin-bottom:10px">🖼️</div>
+      <p style="font-size:14px;color:var(--t2)">Drop image here or click to browse</p>
+      <small style="font-size:11px;color:var(--t3)">PNG · JPG · WebP</small>
+    </div>
+    <input type="file" id="bgInput" accept="image/*" style="display:none" onchange="bgLoadFile(this.files[0])">
+    <div id="bgOrigWrap" style="display:none;margin-top:12px;text-align:center">
+      <p style="font-size:11px;color:var(--t2);margin-bottom:6px">Original</p>
+      <img id="bgOrigImg" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--b);object-fit:contain">
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="card">
+    <div id="bgResultWrap" style="text-align:center;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div id="bgPlaceholder" style="color:var(--t3);font-size:13px">Result will appear here</div>
+      <canvas id="bgCanvas" style="display:none;max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--b);background:repeating-conic-gradient(#2a2a3a 0% 25%,#1a1a28 0% 50%) 0 0/16px 16px"></canvas>
+    </div>
+
+    <div id="bgSettings" style="display:none;margin-top:1rem">
+      <div style="margin-bottom:10px">
+        <label style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:5px">Output background</label>
+        <select id="bgOutputBg" style="width:100%;padding:9px 12px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:#111120;color:#f0f0f6;font-size:13px;outline:none" onchange="bgApplyBackground()">
+          <option value="transparent">Transparent (PNG)</option>
+          <option value="white">White</option>
+          <option value="black">Black</option>
+          <option value="orange">Talabat Orange</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button onclick="bgDownload()" style="width:100%;padding:10px;border-radius:8px;background:linear-gradient(135deg,#E8192C,#FF6B35);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer">⬇ Download PNG</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="divider"></div>
+
+<!-- I BATCH RESIZER - full width -->
+<div>
+    <div class="section-label"><div class="num">I</div><div><h2>Batch Resizer</h2><p>Drop up to 500 images — resize all — download ZIP.</p></div></div>
+    <div class="card">
+
+  <div id="brZone" style="border:1.5px dashed rgba(255,107,53,.25);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;background:rgba(255,107,53,.02);transition:all .2s;margin-bottom:1.25rem"
+    onclick="document.getElementById('brInput').click()"
+    ondragover="event.preventDefault();this.style.borderColor='var(--org)'"
+    ondragleave="this.style.borderColor='rgba(255,107,53,.25)'"
+    ondrop="event.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';brLoadFiles(Array.from(event.dataTransfer.files).filter(f=>f.type.startsWith('image/')))">
+    <div style="font-size:36px;margin-bottom:10px">📦</div>
+    <p style="font-size:14px;color:var(--t2)">Drop up to 500 images here or click to browse</p>
+    <small style="font-size:11px;color:var(--t3)">PNG · JPG · WebP — multiple files</small>
+  </div>
+  <input type="file" id="brInput" accept="image/*" multiple style="display:none" onchange="brLoadFiles(Array.from(this.files))">
+
+  <div id="brStats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="brCount">0</span> images loaded</span>
+    <span style="font-size:12px;color:var(--t2)">Size: <strong id="brMB" style="color:var(--org)">0 MB</strong></span>
+    <button onclick="brClear()" style="margin-left:auto;padding:5px 14px;border-radius:6px;border:1px solid rgba(255,107,53,.3);background:rgba(255,107,53,.08);color:var(--org);font-size:12px;font-weight:700;cursor:pointer">✕ Clear</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:1.25rem">
+    <div><label style="display:block;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Target size</label>
+      <select id="brSize" style="width:100%;padding:9px 12px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:#111120;color:#f0f0f6;font-size:13px;outline:none">
+        <option value="810x540">810 × 540 — Menu Image</option>
+        <option value="750x300">750 × 300 — Cover</option>
+        <option value="200x200">200 × 200 — Logo</option>
+      </select>
+    </div>
+<input type="hidden" id="brFmt" value="image/jpeg">
+    <div><label style="display:block;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Background</label>
+      <select id="brBg" style="width:100%;padding:9px 12px;border:1px solid rgba(255,255,255,.07);border-radius:8px;background:#111120;color:#f0f0f6;font-size:13px;outline:none">
+        <option value="white">White</option>
+        <option value="transparent">Transparent</option>
+        <option value="black">Black</option>
+        <option value="orange">Talabat Orange</option>
+      </select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;background:rgba(255,107,53,.05);border:1px solid rgba(255,107,53,.15);border-radius:8px">
+        <div style="position:relative;width:36px;height:20px;flex-shrink:0">
+          <input type="checkbox" id="brAutoTrim" style="opacity:0;width:0;height:0;position:absolute" onchange="updateTrimToggle(this)">
+          <div id="brToggleTrack" style="position:absolute;inset:0;border-radius:100px;background:rgba(255,255,255,.15);transition:background .2s;cursor:pointer" onclick="var cb=document.getElementById('brAutoTrim');cb.checked=!cb.checked;updateTrimToggle(cb)">
+            <div id="brToggleThumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s"></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--t1)">🤖 Auto Smart Trim</div>
+          <div style="font-size:10px;color:var(--t2)">Detects white/dark edges per image — trims only when needed</div>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <div id="brProgWrap" style="display:none;margin-bottom:1.25rem">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+      <span id="brProgLbl" style="font-size:13px;color:var(--t2)">Processing...</span>
+      <span id="brProgPct" style="font-size:13px;font-weight:800;color:var(--org)">0%</span>
+    </div>
+    <div style="background:rgba(255,255,255,.05);border-radius:100px;height:8px;overflow:hidden">
+      <div id="brProgBar" style="height:100%;width:0%;border-radius:100px;background:linear-gradient(90deg,#E8192C,#FF6B35);transition:width .4s;box-shadow:0 0 10px rgba(255,107,53,.6)"></div>
+    </div>
+    <div style="display:flex;gap:20px;margin-top:8px;font-size:12px;color:var(--t2)">
+      <span>✅ Done: <strong id="brDone" style="color:#4ade80">0</strong></span>
+      <span>❌ Failed: <strong id="brFail" style="color:#ff6b7a">0</strong></span>
+      <span>⏳ Left: <strong id="brLeft" style="color:var(--org)">0</strong></span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:1.25rem">
+    <button id="brStartBtn" onclick="brStart()" disabled style="padding:11px 28px;border-radius:8px;background:linear-gradient(135deg,#E8192C,#FF6B35);color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35">⚡ Resize All &amp; Download ZIP</button>
+    <button id="brStopBtn" onclick="brStop()" style="display:none;padding:11px 20px;border-radius:8px;border:1px solid rgba(232,25,44,.3);background:rgba(232,25,44,.08);color:#ff6b7a;font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
+  </div>
+
+  <div id="brGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
+
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+// ══ STATE ══
+var items=[], results=[], stopped=false, running=false, pbItems=[];
+
+// ══ HELPERS ══
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function show(id){var el=document.getElementById(id);if(el)el.classList.remove('hidden')}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function dlBlob(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
+
+// ══ PROMPT BUILDER ══
+function buildPrompt(name,desc){
+  if(!name.trim())return'';
+  var n=name.trim(),d=desc.trim();
+  var tail='isolated on a pure white background, professional studio lighting, '+
+    'ultra realistic, hyperrealistic food photography, 8K resolution, sharp focus, '+
+    'natural proportions, do not stretch or distort the food, '+
+    'centered composition with equal breathing room on all sides, '+
+    'no extra ingredients or garnish beyond what is described, '+
+    'shot on Canon EOS R5, 100mm macro lens, award winning food photography';
+  return d?'Professional food catalog photo of '+n+', '+d+', '+tail:'Professional food catalog photo of '+n+', '+tail.replace('beyond what is described','beyond the item itself');
+}
+
+function addPbRow(name,desc){
+  name=name||'';desc=desc||'';
+  var idx=pbItems.length;
+  pbItems.push({name:name,desc:desc});
+  var wrap=document.getElementById('pbRows');
+  var div=document.createElement('div');
+  div.id='pbr-'+idx;
+
+  // Build using DOM - no innerHTML quote issues
+  var rowDiv=document.createElement('div');
+  rowDiv.className='pb-row';
+
+  var numSpan=document.createElement('span');
+  numSpan.style.cssText='font-size:12px;color:var(--t3);text-align:center';
+  numSpan.textContent=idx+1;
+
+  var nameInput=document.createElement('input');
+  nameInput.className='fi';
+  nameInput.placeholder='Item name e.g. Chicken Burger';
+  nameInput.value=name;
+  nameInput.addEventListener('input',function(){upPb(idx,'name',this.value);});
+
+  var descInput=document.createElement('input');
+  descInput.className='fi';
+  descInput.placeholder='Description (optional)';
+  descInput.value=desc;
+  descInput.addEventListener('input',function(){upPb(idx,'desc',this.value);});
+
+  var delBtn=document.createElement('button');
+  delBtn.className='btn-icon';
+  delBtn.title='Remove';
+  delBtn.textContent='✕';
+  delBtn.addEventListener('click',function(){remPb(idx);});
+
+  rowDiv.appendChild(numSpan);
+  rowDiv.appendChild(nameInput);
+  rowDiv.appendChild(descInput);
+  rowDiv.appendChild(delBtn);
+
+  var previewDiv=document.createElement('div');
+  previewDiv.className='pb-preview';
+  previewDiv.id='pbp-'+idx;
+  var p=buildPrompt(name,desc);
+  if(p){previewDiv.textContent=p;}
+  else{var s=document.createElement('span');s.className='pb-empty';s.textContent='Prompt will appear as you type...';previewDiv.appendChild(s);}
+
+  div.appendChild(rowDiv);
+  div.appendChild(previewDiv);
+  wrap.appendChild(div);
+  refreshPb();
+}
+
+function upPb(idx,field,val){
+  if(!pbItems[idx])return;
+  pbItems[idx][field]=val;
+  var el=document.getElementById('pbp-'+idx);
+  if(el){
+    var p=buildPrompt(pbItems[idx].name,pbItems[idx].desc);
+    el.innerHTML='';
+    if(p){el.textContent=p;}
+    else{var s=document.createElement('span');s.className='pb-empty';s.textContent='Prompt will appear as you type...';el.appendChild(s);}
+  }
+  refreshPb();
+}
+function remPb(idx){var el=document.getElementById('pbr-'+idx);if(el)el.remove();pbItems[idx]=null;refreshPb();}
+function clearAllRows(){pbItems=[];document.getElementById('pbRows').innerHTML='';refreshPb();}
+
+function refreshPb(){
+  var valid=pbItems.filter(function(i){return i&&i.name.trim();});
+  var card=document.getElementById('pbPreviewCard'),list=document.getElementById('pbPreviewList');
+  if(!card||!list)return;
+  if(!valid.length){card.classList.add('hidden');return;}
+  card.classList.remove('hidden');
+  document.getElementById('pbCount').textContent='('+valid.length+' items)';
+  list.innerHTML='';
+  valid.forEach(function(item){
+    var p=buildPrompt(item.name,item.desc);
+    var div=document.createElement('div');
+    div.style.cssText='padding:10px 0;border-bottom:1px solid rgba(255,107,53,.08)';
+    div.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="font-size:13px;font-weight:800;color:var(--t1)">'+esc(item.name)+'</span>'+
+      (item.desc?'<span style="font-size:11px;color:var(--t3);font-style:italic">'+esc(item.desc)+'</span>':'')+
+      '</div><div style="font-size:11px;color:var(--t2);line-height:1.75;background:rgba(255,107,53,.04);padding:7px 13px;border-radius:8px;border-left:2px solid rgba(255,107,53,.45)">'+esc(p)+'</div>';
+    list.appendChild(div);
+  });
+}
+
+function loadIntoGenerator(){
+  var valid=pbItems.filter(function(i){return i&&i.name.trim();});
+  if(!valid.length){alert('No items to load.');return;}
+  items=valid.map(function(i){return{name:i.name.trim(),prompt:buildPrompt(i.name,i.desc),status:'pending'};});
+  renderTable();show('itemsSection');show('genSection');
+  document.getElementById('genSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function exportCSV(){
+  var valid=pbItems.filter(function(i){return i&&i.name.trim();});
+  if(!valid.length){alert('No items.');return;}
+  var rows=['item_name,prompt'].concat(valid.map(function(i){
+    return '"'+i.name.trim().replace(/"/g,'""')+'","'+buildPrompt(i.name,i.desc).replace(/"/g,'""')+'"';
+  }));
+  dlBlob(new Blob([rows.join('\n')],{type:'text/csv'}),'talabat_prompts.csv');
+}
+
+// ══ CSV UPLOAD ══
+var uz=document.getElementById('uploadZone'),fi=document.getElementById('fileInput');
+uz.addEventListener('click',function(){fi.click();});
+uz.addEventListener('dragover',function(e){e.preventDefault();uz.classList.add('dragover');});
+uz.addEventListener('dragleave',function(){uz.classList.remove('dragover');});
+uz.addEventListener('drop',function(e){e.preventDefault();uz.classList.remove('dragover');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);});
+fi.addEventListener('change',function(){if(fi.files[0])processFile(fi.files[0]);});
+
+document.getElementById('dlSample').addEventListener('click',function(e){
+  e.stopPropagation();
+  dlBlob(new Blob(['item_name,prompt\nWaffle,"Professional food catalog photo of Waffle, isolated on pure white background, studio lighting, sharp focus"\nChicken Burger,"Professional food catalog photo of Chicken Burger, isolated on pure white background, studio lighting, sharp focus"'],{type:'text/csv'}),'sample.csv');
+});
+
+function processFile(file){
+  var n=file.name.toLowerCase();
+  if(n.endsWith('.csv')){var r=new FileReader();r.onload=function(e){parseCSV(e.target.result);};r.readAsText(file);}
+  else if(n.endsWith('.xlsx')||n.endsWith('.xls')){var r=new FileReader();r.onload=function(e){var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});parseCSV(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]));};r.readAsArrayBuffer(file);}
+  else alert('Upload a .csv or .xlsx file.');
+}
+
+function parseCSV(text){
+  var parsed=Papa.parse(text,{header:true,skipEmptyLines:true});
+  var cols=Object.keys(parsed.data[0]||{}).map(function(c){return c.trim().toLowerCase().replace(/\s+/g,'_');});
+  if(cols.indexOf('item_name')<0||cols.indexOf('prompt')<0){alert('Missing columns!\nRequired: item_name and prompt\nFound: '+cols.join(', '));return;}
+  items=parsed.data.map(function(r){
+    var n={};Object.keys(r).forEach(function(k){n[k.trim().toLowerCase().replace(/\s+/g,'_')]=r[k];});
+    return{name:(n.item_name||'').trim(),prompt:(n.prompt||'').trim(),status:'pending'};
+  }).filter(function(i){return i.name&&i.prompt;});
+  if(!items.length){alert('No valid rows found.');return;}
+  renderTable();show('itemsSection');show('genSection');
+  document.getElementById('itemsSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderTable(){
+  document.getElementById('itemCount').textContent=items.length;
+  var tb=document.getElementById('previewBody');tb.innerHTML='';
+  items.forEach(function(item,i){
+    var tr=document.createElement('tr');tr.id='row-'+i;
+    tr.innerHTML='<td style="color:var(--t3);font-size:11px;font-weight:600">'+(i+1)+'</td>'+
+      '<td style="font-weight:600">'+esc(item.name)+'</td>'+
+      '<td class="pc" title="'+esc(item.prompt)+'">'+esc(item.prompt)+'</td>'+
+      '<td><span class="badge b-pend" id="badge-'+i+'">Pending</span></td>';
+    tb.appendChild(tr);
+  });
+}
+
+// ══ IMAGE GENERATOR ══
+document.getElementById('startBtn').addEventListener('click',startGen);
+document.getElementById('stopBtn').addEventListener('click',function(){stopped=true;});
+
+async function startGen(){
+  if(running)return;running=true;stopped=false;results=[];
+  document.getElementById('startBtn').disabled=true;
+  document.getElementById('stopBtn').classList.remove('hidden');
+  show('progressCard');show('resultsSection');
+  document.getElementById('resGrid').innerHTML='';
+  var W=parseInt(document.getElementById('imgWidth').value)||810;
+  var H=parseInt(document.getElementById('imgHeight').value)||540;
+  var model=document.getElementById('modelSelect').value;
+  var total=items.length;
+  var done=0,failed=0;
+  var BATCH=3; // generate 3 at a time
+  updStats(0,0,total);
+
+  for(var i=0;i<items.length;i+=BATCH){
+    if(stopped)break;
+    var batch=items.slice(i,i+BATCH);
+    // Mark all in batch as generating
+    batch.forEach(function(item,bi){
+      var idx=i+bi;
+      setBadge(idx,'b-pend','⏳ generating...');
+    });
+    updProg(done,total,'Generating '+(i+1)+'-'+Math.min(i+BATCH,total)+' of '+total+'...');
+
+    // Fire all in batch simultaneously
+    var batchResults=await Promise.all(batch.map(function(item,bi){
+      var idx=i+bi;
+      var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(item.prompt)+
+        '?width='+W+'&height='+H+'&model='+model+'&nologo=true&seed='+(idx+Date.now());
+      return fetchImg(url).then(function(blob){
+        return{idx:idx,name:item.name,blob:blob};
+      }).catch(function(){
+        return{idx:idx,name:item.name,blob:null};
+      });
+    }));
+
+    // Process batch results
+    batchResults.forEach(function(r){
+      if(r.blob){
+        var objUrl=URL.createObjectURL(r.blob);
+        results.push({name:r.name,blob:r.blob,url:objUrl});
+        done++;
+        setBadge(r.idx,'b-ok','✅ '+Math.round(done/total*100)+'%');
+        addCard(r.name,objUrl,r.idx);
+      } else {
+        failed++;
+        setBadge(r.idx,'b-err','❌ Failed');
+      }
+    });
+
+    updStats(done,failed,Math.max(0,total-i-BATCH));
+    updProg(Math.min(i+BATCH,total),total,
+      i+BATCH>=total
+        ?'🎉 Done! '+done+'/'+total+' generated.'
+        :'Done '+(i+BATCH)+'/'+total+', generating next batch...'
+    );
+
+    // Small pause between batches to avoid rate limiting
+    if(i+BATCH<items.length&&!stopped)await sleep(1000);
+  }
+
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('stopBtn').classList.add('hidden');
+  running=false;
+}
+
+async function fetchImg(url,retries){
+  retries=retries||3;
+  for(var a=0;a<retries;a++){
+    try{var r=await fetch(url);if(r.ok){var b=await r.blob();if(b.size>1000)return b;}await sleep(8000);}
+    catch(e){await sleep(8000);}
+  }
+  return null;
+}
+
+function addCard(name,url,idx){
+  var div=document.createElement('div');
+  div.className='res-item';
+  div.id='card-'+idx;
+  div.innerHTML=
+    '<div style="position:relative">'+
+      '<img src="'+url+'" alt="'+esc(name)+'" loading="lazy" style="width:100%;aspect-ratio:3/2;object-fit:cover;display:block">'+
+      '<button onclick="regenImage('+idx+')" title="Regenerate this image" '+
+        'style="position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;'+
+        'background:rgba(0,0,0,.65);border:1.5px solid rgba(255,107,53,.6);color:var(--org);'+
+        'font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;'+
+        'transition:all .2s;backdrop-filter:blur(4px)" '+
+        'onmouseover="this.style.background=\'rgba(255,107,53,.3)\'" '+
+        'onmouseout="this.style.background=\'rgba(0,0,0,.65)\'">🔄</button>'+
+      '<div id="regen-overlay-'+idx+'" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.6);'+
+        'display:none;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:600">'+
+        '⏳ Regenerating...</div>'+
+    '</div>'+
+    '<div class="res-label"><span>'+esc(name)+'</span><a href="'+url+'" download="'+esc(name)+'.jpg" id="save-'+idx+'">Save</a></div>';
+  document.getElementById('resGrid').appendChild(div);
+}
+
+document.getElementById('dlZipBtn').addEventListener('click',async function(){
+  if(!results.length){alert('No images yet.');return;}
+  var btn=document.getElementById('dlZipBtn');
+  btn.disabled=true;btn.textContent='⏳ Packing ZIP...';
+  var zip=new JSZip();
+  results.forEach(function(r){zip.file(r.name.replace(/[^a-zA-Z0-9\s\-_]/g,'').trim().replace(/\s+/g,'_')+'.jpg',r.blob);});
+  var blob=await zip.generateAsync({type:'blob'});
+  dlBlob(blob,'talabat_batch_images.zip');
+  btn.disabled=false;btn.textContent='⬇ Download all as ZIP';
+});
+
+function updProg(done,total,label){
+  var pct=total>0?Math.round(done/total*100):0;
+  document.getElementById('progBar').style.width=pct+'%';
+  document.getElementById('progLabel').textContent=label;
+  var pp=document.getElementById('progPct');if(pp)pp.textContent=pct+'%';
+}
+function updStats(d,f,l){
+  document.getElementById('cDone').textContent=d;
+  document.getElementById('cFail').textContent=f;
+  document.getElementById('cLeft').textContent=l;
+}
+function setBadge(i,cls,label){var b=document.getElementById('badge-'+i);if(b){b.className='badge '+cls;b.textContent=label;}}
+
+// ══ CORE RESIZE — contain fit, NO stretch ══
+function containResize(srcImg, srcCanvas, srcW, srcH, W, H, bg, fmt, callback){
+  var canvas=document.createElement('canvas');
+  canvas.width=W;canvas.height=H;
+  var ctx=canvas.getContext('2d');
+  // fill background
+  if(bg==='transparent'){ctx.clearRect(0,0,W,H);}
+  else{ctx.fillStyle=(bg==='orange')?'#FF6B35':bg;ctx.fillRect(0,0,W,H);}
+  // scale to fit inside WxH keeping aspect ratio
+  var scale=Math.min(W/srcW, H/srcH);
+  var dw=Math.round(srcW*scale);
+  var dh=Math.round(srcH*scale);
+  var dx=Math.round((W-dw)/2);
+  var dy=Math.round((H-dh)/2);
+  if(srcCanvas&&srcCanvas.tagName==='CANVAS'){
+    ctx.drawImage(srcCanvas,dx,dy,dw,dh);
+  } else {
+    ctx.drawImage(srcImg,dx,dy,dw,dh);
+  }
+  canvas.toBlob(function(blob){callback(blob);}, fmt, fmt==='image/jpeg'?0.92:undefined);
+}
+
+// ══ AUTO SMART TRIM ══
+function updateTrimToggle(cb){
+  var track=document.getElementById('brToggleTrack');
+  var thumb=document.getElementById('brToggleThumb');
+  if(cb.checked){track.style.background='var(--org)';thumb.style.transform='translateX(16px)';}
+  else{track.style.background='rgba(255,255,255,.15)';thumb.style.transform='translateX(0)';}
+}
+
+function autoDetectTrim(img){
+  var tc=document.createElement('canvas');
+  tc.width=img.naturalWidth;tc.height=img.naturalHeight;
+  var tx=tc.getContext('2d');tx.drawImage(img,0,0);
+  var w=tc.width,h=tc.height;
+  var borderPixels=[];
+  var step=2;
+  for(var x=0;x<w;x+=step){
+    borderPixels.push(tx.getImageData(x,0,1,1).data);
+    borderPixels.push(tx.getImageData(x,h-1,1,1).data);
+  }
+  for(var y=0;y<h;y+=step){
+    borderPixels.push(tx.getImageData(0,y,1,1).data);
+    borderPixels.push(tx.getImageData(w-1,y,1,1).data);
+  }
+  var total=borderPixels.length,whiteCount=0,darkCount=0;
+  var wThresh=235,dThresh=20;
+  borderPixels.forEach(function(px){
+    var r=px[0],g=px[1],b=px[2],a=px[3];
+    if(a<10){whiteCount++;return;}
+    if(r>=wThresh&&g>=wThresh&&b>=wThresh)whiteCount++;
+    else if(r<=dThresh&&g<=dThresh&&b<=dThresh)darkCount++;
+  });
+  var wPct=whiteCount/total,dPct=darkCount/total;
+  if(wPct>0.6)return{shouldTrim:true,threshold:235,trimDark:false};
+  if(dPct>0.6)return{shouldTrim:true,threshold:235,trimDark:true};
+  return{shouldTrim:false};
+}
+
+function trimWS(img,threshold,trimDark){
+  threshold=threshold||235;
+  var tc=document.createElement('canvas');
+  tc.width=img.naturalWidth;tc.height=img.naturalHeight;
+  var tx=tc.getContext('2d');tx.drawImage(img,0,0);
+  var data=tx.getImageData(0,0,tc.width,tc.height).data;
+  var top=tc.height,bottom=0,left=tc.width,right=0;
+  for(var y=0;y<tc.height;y++){
+    for(var x=0;x<tc.width;x++){
+      var idx=(y*tc.width+x)*4;
+      var r=data[idx],g=data[idx+1],b=data[idx+2],a=data[idx+3];
+      var isWhite=(r>=threshold&&g>=threshold&&b>=threshold);
+      var isDark=trimDark&&(r<=255-threshold&&g<=255-threshold&&b<=255-threshold);
+      if(a>10&&!isWhite&&!isDark){
+        if(y<top)top=y;if(y>bottom)bottom=y;
+        if(x<left)left=x;if(x>right)right=x;
+      }
+    }
+  }
+  if(top>bottom||left>right)return null;
+  var pad=6;
+  top=Math.max(0,top-pad);bottom=Math.min(tc.height-1,bottom+pad);
+  left=Math.max(0,left-pad);right=Math.min(tc.width-1,right+pad);
+  var cw=right-left+1,ch=bottom-top+1;
+  var cc=document.createElement('canvas');cc.width=cw;cc.height=ch;
+  cc.getContext('2d').drawImage(tc,left,top,cw,ch,0,0,cw,ch);
+  return{canvas:cc,w:cw,h:ch};
+}
+
+// ══ LOGO RESIZER (F) ══
+var rzImgEl=null;
+document.getElementById('rzZone').addEventListener('click',function(){document.getElementById('rzInput').click();});
+document.getElementById('rzZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
+document.getElementById('rzZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
+document.getElementById('rzZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';if(e.dataTransfer.files[0])loadRzFile(e.dataTransfer.files[0]);});
+document.getElementById('rzInput').addEventListener('change',function(){if(this.files[0])loadRzFile(this.files[0]);});
+
+function loadRzFile(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      rzImgEl=img;
+      document.getElementById('rzPrev').style.display='block';
+      document.getElementById('rzImg2').src=e.target.result;
+      document.getElementById('rzSize').textContent='Original: '+img.naturalWidth+' × '+img.naturalHeight+'px';
+      document.getElementById('rzZone').style.display='none';
+      document.getElementById('rzBtn').disabled=false;
+      document.getElementById('rzBtn').style.opacity='1';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('rzBtn').addEventListener('click',function(){
+  if(!rzImgEl)return;
+  var bg=document.getElementById('rzBg').value;
+  var doTrim=document.getElementById('rzCrop').checked;
+  var W=200,H=200;
+  var fmt='image/jpeg';
+  function run(srcImg,srcCanvas,srcW,srcH){
+    containResize(srcImg,srcCanvas,srcW,srcH,W,H,bg,fmt,function(blob){
+      dlBlob(blob,'talabat_logo_200x200.jpg');
+      document.getElementById('rzOk').textContent='✅ Downloaded: 200×200px JPG';
+      document.getElementById('rzOk').style.display='block';
+    });
+  }
+  if(doTrim){var t=trimWS(rzImgEl,235,false);if(t)run(rzImgEl,t.canvas,t.w,t.h);else run(rzImgEl,null,rzImgEl.naturalWidth,rzImgEl.naturalHeight);}
+  else run(rzImgEl,null,rzImgEl.naturalWidth,rzImgEl.naturalHeight);
+});
+
+// ══ COVER RESIZER (G) ══
+var cvImgEl=null;
+document.getElementById('cvZone').addEventListener('click',function(){document.getElementById('cvInput').click();});
+document.getElementById('cvZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
+document.getElementById('cvZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
+document.getElementById('cvZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';if(e.dataTransfer.files[0])loadCvFile(e.dataTransfer.files[0]);});
+document.getElementById('cvInput').addEventListener('change',function(){if(this.files[0])loadCvFile(this.files[0]);});
+
+function loadCvFile(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      cvImgEl=img;
+      document.getElementById('cvPrev').style.display='block';
+      document.getElementById('cvImg2').src=e.target.result;
+      document.getElementById('cvSize').textContent='Original: '+img.naturalWidth+' × '+img.naturalHeight+'px';
+      document.getElementById('cvZone').style.display='none';
+      document.getElementById('cvBtn').disabled=false;
+      document.getElementById('cvBtn').style.opacity='1';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('cvBtn').addEventListener('click',function(){
+  if(!cvImgEl)return;
+  var bg=document.getElementById('cvBg').value;
+  var doTrim=document.getElementById('cvCrop').checked;
+  var W=750,H=300;
+  var fmt='image/jpeg';
+  function run(srcImg,srcCanvas,srcW,srcH){
+    containResize(srcImg,srcCanvas,srcW,srcH,W,H,bg,fmt,function(blob){
+      dlBlob(blob,'talabat_cover_750x300.jpg');
+      document.getElementById('cvOk').textContent='✅ Downloaded: 750×300px JPG';
+      document.getElementById('cvOk').style.display='block';
+    });
+  }
+  if(doTrim){var t=trimWS(cvImgEl,235,false);if(t)run(cvImgEl,t.canvas,t.w,t.h);else run(cvImgEl,null,cvImgEl.naturalWidth,cvImgEl.naturalHeight);}
+  else run(cvImgEl,null,cvImgEl.naturalWidth,cvImgEl.naturalHeight);
+});
+
+// ══ BATCH RESIZER (I) ══
+var brFiles=[],brStopped=false,brRunning=false;
+document.getElementById('brZone').addEventListener('click',function(){document.getElementById('brInput').click();});
+document.getElementById('brZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
+document.getElementById('brZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
+document.getElementById('brZone').addEventListener('drop',function(e){
+  e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';
+  brLoadFiles(Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');}));
+});
+document.getElementById('brInput').addEventListener('change',function(){brLoadFiles(Array.from(this.files));});
+
+function brLoadFiles(files){
+  if(!files||!files.length)return;
+  brFiles=files.slice(0,500);
+  var totalMB=(brFiles.reduce(function(a,f){return a+f.size;},0)/1048576).toFixed(1);
+  document.getElementById('brCount').textContent=brFiles.length;
+  document.getElementById('brMB').textContent=totalMB+' MB';
+  document.getElementById('brStats').style.display='flex';
+  document.getElementById('brStartBtn').disabled=false;
+  document.getElementById('brStartBtn').style.opacity='1';
+  document.getElementById('brProgWrap').style.display='none';
+  document.getElementById('brLeft').textContent=brFiles.length;
+  document.getElementById('brDone').textContent='0';
+  document.getElementById('brFail').textContent='0';
+  var grid=document.getElementById('brGrid');grid.innerHTML='';
+  brFiles.forEach(function(file){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var div=document.createElement('div');
+      div.style.cssText='border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.07);background:#1e1e2a';
+      div.innerHTML='<img src="'+e.target.result+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block"><div style="font-size:8px;color:#44445a;padding:2px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+file.name+'</div>';
+      grid.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function brClear(){
+  brFiles=[];
+  document.getElementById('brStats').style.display='none';
+  document.getElementById('brGrid').innerHTML='';
+  document.getElementById('brStartBtn').disabled=true;
+  document.getElementById('brStartBtn').style.opacity='.35';
+  document.getElementById('brProgWrap').style.display='none';
+  document.getElementById('brInput').value='';
+}
+
+document.getElementById('brStopBtn').addEventListener('click',function(){brStopped=true;});
+document.getElementById('brStartBtn').addEventListener('click',function(){
+  if(!brFiles.length||brRunning)return;
+  brRunning=true;brStopped=false;
+  document.getElementById('brStartBtn').disabled=true;
+  document.getElementById('brStopBtn').style.display='inline-flex';
+  document.getElementById('brProgWrap').style.display='block';
+  var sizeVal=document.getElementById('brSize').value;
+  var parts=sizeVal.split('x');var W=parseInt(parts[0]);var H=parseInt(parts[1]);
+  var bg=document.getElementById('brBg').value;
+  var doAutoTrim=document.getElementById('brAutoTrim').checked;
+  var total=brFiles.length,done=0,failed=0;
+  var zip=new JSZip();
+  var i=0;
+  function processNext(){
+    if(i>=brFiles.length||brStopped){
+      document.getElementById('brProgBar').style.width='100%';
+      document.getElementById('brProgPct').textContent='100%';
+      document.getElementById('brProgLbl').textContent=(brStopped?'⏹ Stopped. ':'🎉 Done! ')+done+'/'+total+' resized.';
+      zip.generateAsync({type:'blob'}).then(function(blob){dlBlob(blob,'talabat_batch_resized_'+W+'x'+H+'.zip');});
+      document.getElementById('brStartBtn').disabled=false;
+      document.getElementById('brStartBtn').style.opacity='1';
+      document.getElementById('brStopBtn').style.display='none';
+      brRunning=false;return;
+    }
+    var pct=Math.round(i/total*100);
+    document.getElementById('brProgBar').style.width=pct+'%';
+    document.getElementById('brProgPct').textContent=pct+'%';
+    document.getElementById('brProgLbl').textContent='Processing: '+brFiles[i].name+' ('+(i+1)+'/'+total+')';
+    document.getElementById('brLeft').textContent=total-i;
+    brResizeFile(brFiles[i],W,H,bg,doAutoTrim,function(blob){
+      if(blob){zip.file(brFiles[i].name.replace(/\.[^.]+$/,'.'+'jpg'),blob);done++;document.getElementById('brDone').textContent=done;}
+      else{failed++;document.getElementById('brFail').textContent=failed;}
+      i++;setTimeout(processNext,0);
+    });
+  }
+  processNext();
+});
+
+function brResizeFile(file,W,H,bg,doAutoTrim,callback){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      function run(srcImg,srcCanvas,srcW,srcH){
+        containResize(srcImg,srcCanvas,srcW,srcH,W,H,bg,'image/jpeg',function(blob){callback(blob);});
+      }
+      if(doAutoTrim){
+        var detected=autoDetectTrim(img);
+        if(detected.shouldTrim){
+          var t=trimWS(img,detected.threshold,detected.trimDark);
+          if(t)run(img,t.canvas,t.w,t.h);
+          else run(img,null,img.naturalWidth,img.naturalHeight);
+        } else run(img,null,img.naturalWidth,img.naturalHeight);
+      } else run(img,null,img.naturalWidth,img.naturalHeight);
+    };
+    img.onerror=function(){callback(null);};
+    img.src=e.target.result;
+  };
+  reader.onerror=function(){callback(null);};
+  reader.readAsDataURL(file);
+}
+
+// ══ REGENERATE SINGLE IMAGE ══
+function regenImage(idx){
+  if(!items[idx])return;
+  var overlay=document.getElementById('regen-overlay-'+idx);
+  var card=document.getElementById('card-'+idx);
+  if(overlay){overlay.style.display='flex';}
+  var W=parseInt(document.getElementById('imgWidth').value)||810;
+  var H=parseInt(document.getElementById('imgHeight').value)||540;
+  var model=document.getElementById('modelSelect').value;
+  var seed=Math.floor(Math.random()*999999);
+  var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(items[idx].prompt)+
+    '?width='+W+'&height='+H+'&model='+model+'&nologo=true&seed='+seed;
+  fetchImg(url).then(function(blob){
+    if(blob){
+      var newUrl=URL.createObjectURL(blob);
+      // Update image in card
+      var img=card.querySelector('img');
+      if(img)img.src=newUrl;
+      // Update save link
+      var saveLink=document.getElementById('save-'+idx);
+      if(saveLink){saveLink.href=newUrl;saveLink.download=items[idx].name+'.jpg';}
+      // Update results array
+      for(var r=0;r<results.length;r++){
+        if(results[r].name===items[idx].name){results[r].blob=blob;results[r].url=newUrl;break;}
+      }
+    }
+    if(overlay)overlay.style.display='none';
+  });
+}
+
+
+// ══ BACKGROUND REMOVER ══
+var bgOrigImgEl = null;
+var bgMaskData = null;
+
+function bgLoadFile(file) {
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      bgOrigImgEl = img;
+      document.getElementById('bgOrigImg').src = e.target.result;
+      document.getElementById('bgOrigWrap').style.display = 'block';
+      document.getElementById('bgZone').style.display = 'none';
+      bgRemoveBackground(img);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function bgRemoveBackground(img) {
+  var placeholder = document.getElementById('bgPlaceholder');
+  var canvas = document.getElementById('bgCanvas');
+  placeholder.innerHTML = '<div style="color:var(--org);font-size:13px">⏳ Removing background...</div>';
+  
+  // Draw image to canvas
+  var tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = img.naturalWidth;
+  tmpCanvas.height = img.naturalHeight;
+  var ctx = tmpCanvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  
+  var imageData = ctx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height);
+  var data = imageData.data;
+  var w = tmpCanvas.width, h = tmpCanvas.height;
+  
+  // Smart background removal:
+  // 1. Sample corner pixels to detect background color
+  var samples = [];
+  var sampleSize = Math.min(20, Math.floor(Math.min(w,h) * 0.05));
+  for(var sy = 0; sy < sampleSize; sy++) {
+    for(var sx = 0; sx < sampleSize; sx++) {
+      // Sample all 4 corners
+      [[sx,sy],[w-1-sx,sy],[sx,h-1-sy],[w-1-sx,h-1-sy]].forEach(function(pt) {
+        var idx = (pt[1]*w+pt[0])*4;
+        samples.push([data[idx],data[idx+1],data[idx+2]]);
+      });
+    }
+  }
+  
+  // Calculate average background color
+  var avgR = samples.reduce(function(a,s){return a+s[0];},0)/samples.length;
+  var avgG = samples.reduce(function(a,s){return a+s[1];},0)/samples.length;
+  var avgB = samples.reduce(function(a,s){return a+s[2];},0)/samples.length;
+  
+  // Create mask using flood fill + color similarity
+  var tolerance = 35;
+  var visited = new Uint8Array(w * h);
+  var mask = new Uint8Array(w * h); // 0=background, 255=foreground
+  
+  // Flood fill from all edges
+  var queue = [];
+  
+  function addToQueue(x, y) {
+    if(x>=0&&x<w&&y>=0&&y<h&&!visited[y*w+x]) {
+      var idx4=(y*w+x)*4;
+      var r=data[idx4],g=data[idx4+1],b=data[idx4+2];
+      var dist=Math.sqrt(Math.pow(r-avgR,2)+Math.pow(g-avgG,2)+Math.pow(b-avgB,2));
+      if(dist < tolerance*2.5) {
+        queue.push(y*w+x);
+        visited[y*w+x]=1;
+      }
+    }
+  }
+  
+  // Seed from all edges
+  for(var x=0;x<w;x++){addToQueue(x,0);addToQueue(x,h-1);}
+  for(var y=0;y<h;y++){addToQueue(0,y);addToQueue(w-1,y);}
+  
+  // BFS
+  while(queue.length>0){
+    var pos=queue.shift();
+    var px=pos%w,py=Math.floor(pos/w);
+    mask[pos]=0; // background
+    var neighbors=[[px-1,py],[px+1,py],[px,py-1],[px,py+1]];
+    neighbors.forEach(function(n){
+      var nx=n[0],ny=n[1];
+      if(nx>=0&&nx<w&&ny>=0&&ny<h&&!visited[ny*w+nx]){
+        var idx4=(ny*w+nx)*4;
+        var r=data[idx4],g=data[idx4+1],b=data[idx4+2];
+        var dist=Math.sqrt(Math.pow(r-avgR,2)+Math.pow(g-avgG,2)+Math.pow(b-avgB,2));
+        if(dist<tolerance*2.5){
+          queue.push(ny*w+nx);
+          visited[ny*w+nx]=1;
+        }
+      }
+    });
+  }
+  
+  // Everything not visited = foreground
+  for(var i=0;i<w*h;i++){
+    mask[i]=visited[i]?0:255;
+  }
+  
+  // Apply soft edge (feather 2px)
+  var result = ctx.createImageData(w, h);
+  for(var y2=0;y2<h;y2++){
+    for(var x2=0;x2<w;x2++){
+      var i4=(y2*w+x2)*4;
+      var alpha=mask[y2*w+x2];
+      // Check neighbors for soft edge
+      if(alpha>0){
+        var neighbors2=[[x2-1,y2],[x2+1,y2],[x2,y2-1],[x2,y2+1],[x2-2,y2],[x2+2,y2],[x2,y2-2],[x2,y2+2]];
+        var bgCount=0;
+        neighbors2.forEach(function(n){
+          if(n[0]>=0&&n[0]<w&&n[1]>=0&&n[1]<h){
+            if(mask[n[1]*w+n[0]]===0)bgCount++;
+          }
+        });
+        if(bgCount>0) alpha=Math.round(alpha*(1-bgCount/neighbors2.length*0.7));
+      }
+      result.data[i4]=data[i4];
+      result.data[i4+1]=data[i4+1];
+      result.data[i4+2]=data[i4+2];
+      result.data[i4+3]=alpha;
+    }
+  }
+  
+  bgMaskData = result;
+  
+  // Show result
+  canvas.width=w;canvas.height=h;
+  bgApplyBackground();
+  canvas.style.display='block';
+  placeholder.innerHTML='';
+  document.getElementById('bgSettings').style.display='block';
+}
+
+function bgApplyBackground(){
+  if(!bgMaskData)return;
+  var canvas=document.getElementById('bgCanvas');
+  var ctx=canvas.getContext('2d');
+  var bg=document.getElementById('bgOutputBg').value;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(bg!=='transparent'){
+    ctx.fillStyle=bg==='orange'?'#FF6B35':bg;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+  ctx.putImageData(bgMaskData,0,0);
+}
+
+function bgDownload(){
+  if(!bgMaskData)return;
+  var canvas=document.getElementById('bgCanvas');
+  var bg=document.getElementById('bgOutputBg').value;
+  // Always PNG to preserve transparency and quality
+  var link=document.createElement('a');
+  link.download='talabat_no_bg.png';
+  link.href=canvas.toDataURL('image/png');
+  link.click();
+}
+
+// ══ RESET ALL ══
+function resetAll(){
+  if(!confirm('Start a new session? All current items and images will be cleared.'))return;
+  items=[];results=[];stopped=true;running=false;pbItems=[];
+  document.getElementById('pbRows').innerHTML='';
+  var pbl=document.getElementById('pbPreviewList');if(pbl)pbl.innerHTML='';
+  var tb=document.getElementById('previewBody');if(tb)tb.innerHTML='';
+  var rg=document.getElementById('resGrid');if(rg)rg.innerHTML='';
+  ['pbPreviewCard','itemsSection','genSection','resultsSection','progressCard'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.classList.add('hidden');
+  });
+  var pb=document.getElementById('progBar');if(pb)pb.style.width='0%';
+  var pl=document.getElementById('progLabel');if(pl)pl.textContent='Waiting...';
+  var pp=document.getElementById('progPct');if(pp)pp.textContent='0%';
+  document.getElementById('cDone').textContent='0';
+  document.getElementById('cFail').textContent='0';
+  document.getElementById('cLeft').textContent='0';
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('stopBtn').classList.add('hidden');
+  document.getElementById('fileInput').value='';
+  rzImgEl=null;
+  document.getElementById('rzPrev').style.display='none';
+  document.getElementById('rzZone').style.display='';
+  document.getElementById('rzBtn').disabled=true;
+  document.getElementById('rzBtn').style.opacity='.4';
+  cvImgEl=null;
+  document.getElementById('cvPrev').style.display='none';
+  document.getElementById('cvZone').style.display='';
+  document.getElementById('cvBtn').disabled=true;
+  document.getElementById('cvBtn').style.opacity='.4';
+  brClear();
+  
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ══ INIT ══
+addPbRow();addPbRow();addPbRow();
+</script>
+</body>
+</html>
