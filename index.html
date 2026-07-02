@@ -340,18 +340,7 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.25rem">
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;background:rgba(255,107,53,.05);border:1px solid rgba(255,107,53,.15);border-radius:8px">
-      <div style="position:relative;width:36px;height:20px;flex-shrink:0">
-        <input type="checkbox" id="brAutoTrim" style="opacity:0;width:0;height:0;position:absolute" onchange="updateTrimToggle(this)">
-        <div id="brToggleTrack" style="position:absolute;inset:0;border-radius:100px;background:rgba(255,255,255,.15);transition:background .2s;cursor:pointer" onclick="var cb=document.getElementById('brAutoTrim');cb.checked=!cb.checked;updateTrimToggle(cb)">
-          <div id="brToggleThumb" style="position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s"></div>
-        </div>
-      </div>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:var(--t1)">🤖 Auto Smart Trim</div>
-        <div style="font-size:10px;color:var(--t2)">Trims white/dark borders, per image</div>
-      </div>
-    </label>
+
 
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;background:rgba(255,107,53,.05);border:1px solid rgba(255,107,53,.15);border-radius:8px">
       <div style="position:relative;width:36px;height:20px;flex-shrink:0">
@@ -418,6 +407,12 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
           <span id="brCropZoomVal" style="font-size:12px;font-weight:700;color:var(--org);min-width:40px">100%</span>
         </div>
         <div style="font-size:10px;color:var(--t3);text-align:center;margin-top:4px">🖱 Drag to pan · Scroll wheel to zoom · Orange frame = final crop</div>
+      </div>
+      <div style="display:flex;gap:8px;padding:0 1rem 0.5rem">
+        <button onclick="brRotateCrop(-90)" style="padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--t1);font-size:16px;cursor:pointer" title="Rotate Left 90°">↺</button>
+        <button onclick="brRotateCrop(90)"  style="padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--t1);font-size:16px;cursor:pointer" title="Rotate Right 90°">↻</button>
+        <button onclick="brRotateCrop(180)" style="padding:9px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--t1);font-size:14px;cursor:pointer" title="Flip 180°">🔄</button>
+        <span style="font-size:10px;color:var(--t3);align-self:center;margin-left:4px">Rotate before crop</span>
       </div>
       <div style="display:flex;gap:8px;padding:0 1rem 1rem">
         <button class="btn btn-primary" id="brCropApplyBtn" style="flex:1">✂️ Apply Crop</button>
@@ -813,8 +808,8 @@ function autoDetectTrim(img){
   borderPixels.forEach(function(px){
     var r=px[0],g=px[1],b=px[2],a=px[3];
     if(a<10){whiteCount++;return;}
-    if(r>=wThresh&&g>=wThresh&&b>=wThresh)whiteCount++;
-    else if(r<=dThresh&&g<=dThresh&&b<=dThresh)darkCount++;
+    if(r>=wThresh&&g>=wThresh&&b>=wThresh){whiteCount++;}
+    else if(r<=dThresh&&g<=dThresh&&b<=dThresh){darkCount++;}
   });
   var wPct=whiteCount/total,dPct=darkCount/total;
   if(wPct>0.6)return{shouldTrim:true,threshold:235,trimDark:false};
@@ -935,6 +930,7 @@ function brOpenCropModal(idx){
     img2.onload=function(){
       brCropNatW=img2.naturalWidth; brCropNatH=img2.naturalHeight;
       document.getElementById('brCropImg').src=e.target.result;
+      brCropRotation=0;
       document.getElementById('brCropModal').style.display='flex';
       requestAnimationFrame(function(){
         brCropInitView();
@@ -1059,7 +1055,7 @@ document.getElementById('brStartBtn').addEventListener('click',function(){
   var parts=sizeVal.split('x');var W=parseInt(parts[0]);var H=parseInt(parts[1]);
   var bg=document.getElementById('brBg').value;
   var fitMode=document.getElementById('brFit').value;
-  var doAutoTrim=document.getElementById('brAutoTrim').checked;
+  var doAutoTrim=false;
   var doRemoveBg=document.getElementById('brRemoveBg').checked;
   // Transparency only survives in PNG — switch format automatically when relevant
   var outFmt=(doRemoveBg||bg==='transparent')?'image/png':'image/jpeg';
@@ -1287,6 +1283,54 @@ function resetAll(){
 
 // ══ INIT ══
 addPbRow();addPbRow();addPbRow();
+
+// ══ ROTATE IN CROP MODAL ══
+var brCropRotation=0;
+
+function brRotateCrop(deg){
+  var imgEl=document.getElementById('brCropImg');
+  if(!imgEl||!imgEl.src)return;
+  var c=document.createElement('canvas');
+  var sw=imgEl.naturalWidth,sh=imgEl.naturalHeight;
+  var absDeg=Math.abs(deg)%360;
+  if(absDeg===90||absDeg===270){c.width=sh;c.height=sw;}
+  else{c.width=sw;c.height=sh;}
+  var ctx=c.getContext('2d');
+  ctx.translate(c.width/2,c.height/2);
+  ctx.rotate(deg*Math.PI/180);
+  ctx.drawImage(imgEl,-sw/2,-sh/2);
+  var rotatedSrc=c.toDataURL('image/jpeg',0.95);
+  var newImg=new Image();
+  newImg.onload=function(){
+    brCropNatW=newImg.naturalWidth;brCropNatH=newImg.naturalHeight;
+    imgEl.src=rotatedSrc;
+    imgEl.onload=function(){brCropInitView();};
+  };
+  newImg.src=rotatedSrc;
+}
+
+// ══ ROTATE IN CROP MODAL ══
+var brCropRotation=0;
+function brRotateCrop(deg){
+  var imgEl=document.getElementById('brCropImg');
+  if(!imgEl||!imgEl.src||imgEl.src===window.location.href)return;
+  var c=document.createElement('canvas');
+  var sw=imgEl.naturalWidth,sh=imgEl.naturalHeight;
+  var absDeg=((deg%360)+360)%360;
+  if(absDeg===90||absDeg===270){c.width=sh;c.height=sw;}
+  else{c.width=sw;c.height=sh;}
+  var ctx=c.getContext('2d');
+  ctx.translate(c.width/2,c.height/2);
+  ctx.rotate(deg*Math.PI/180);
+  ctx.drawImage(imgEl,-sw/2,-sh/2);
+  var src=c.toDataURL('image/jpeg',0.95);
+  imgEl.onload=function(){
+    brCropNatW=imgEl.naturalWidth;
+    brCropNatH=imgEl.naturalHeight;
+    brCropInitView();
+  };
+  imgEl.src=src;
+}
 </script>
 </body>
 </html>
