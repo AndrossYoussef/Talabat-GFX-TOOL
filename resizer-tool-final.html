@@ -171,9 +171,9 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
       <div id="lgZone" style="border:1.5px dashed rgba(255,107,53,.25);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;background:rgba(255,107,53,.02);transition:all .2s;margin-bottom:1rem">
         <div style="font-size:32px;margin-bottom:8px">🏷️</div>
         <p style="font-size:13px;color:var(--t2)">Drop logos here or click to browse</p>
-        <small style="font-size:11px;color:var(--t3)">PNG · JPG · WebP · PDF — up to 1000 files</small>
+        <small style="font-size:11px;color:var(--t3)">PNG · JPG · JPEG · WebP · PDF — up to 1000 files</small>
       </div>
-      <input type="file" id="lgInput" accept="image/*,.pdf" multiple style="display:none">
+      <input type="file" id="lgInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
       <div id="lgStats" style="display:none;margin-bottom:1rem;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:12px;font-weight:700">📁 <span id="lgCount">0</span> files — <strong id="lgMB" style="color:var(--org)">0</strong> MB</span>
         <span id="lgLQBadge" style="display:none;font-size:10px;padding:2px 8px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171">⚠️ <span id="lgLQN">0</span> low quality</span>
@@ -213,9 +213,9 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
       <div id="cvZone" style="border:1.5px dashed rgba(255,107,53,.25);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;background:rgba(255,107,53,.02);transition:all .2s;margin-bottom:1rem">
         <div style="font-size:32px;margin-bottom:8px">🖼️</div>
         <p style="font-size:13px;color:var(--t2)">Drop covers here or click to browse</p>
-        <small style="font-size:11px;color:var(--t3)">PNG · JPG · WebP · PDF — up to 1000 files</small>
+        <small style="font-size:11px;color:var(--t3)">PNG · JPG · JPEG · WebP · PDF — up to 1000 files</small>
       </div>
-      <input type="file" id="cvInput" accept="image/*,.pdf" multiple style="display:none">
+      <input type="file" id="cvInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
       <div id="cvStats" style="display:none;margin-bottom:1rem;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:12px;font-weight:700">📁 <span id="cvCount">0</span> files — <strong id="cvMB" style="color:var(--org)">0</strong> MB</span>
         <span id="cvLQBadge" style="display:none;font-size:10px;padding:2px 8px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171">⚠️ <span id="cvLQN">0</span> low quality</span>
@@ -260,9 +260,9 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   <div id="brZone" style="border:1.5px dashed rgba(255,107,53,.25);border-radius:10px;padding:2rem;text-align:center;cursor:pointer;background:rgba(255,107,53,.02);transition:all .2s;margin-bottom:1.25rem">
     <div style="font-size:36px;margin-bottom:10px">📦</div>
     <p style="font-size:14px;color:var(--t2)">Drop up to 1000 images here or click to browse</p>
-    <small style="font-size:11px;color:var(--t3)">PNG · JPG · WebP · PDF — multiple files</small>
+    <small style="font-size:11px;color:var(--t3)">PNG · JPG · JPEG · WebP · PDF — multiple files</small>
   </div>
-  <input type="file" id="brInput" accept="image/*,.pdf" multiple style="display:none">
+  <input type="file" id="brInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
 
   <a href="https://lamacleaner.org/#tools" target="_blank" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:10px;text-decoration:none;margin-bottom:1rem;transition:background .2s" onmouseover="this.style.background='rgba(74,222,128,.12)'" onmouseout="this.style.background='rgba(74,222,128,.05)'">
     <span style="font-size:24px">🪄</span>
@@ -522,7 +522,7 @@ document.getElementById('brZone').addEventListener('dragover',function(e){e.prev
 document.getElementById('brZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
 document.getElementById('brZone').addEventListener('drop',function(e){
   e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';
-  brLoadFiles(Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/')||f.name.toLowerCase().endsWith('.pdf');}));
+  brLoadFiles(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp');}));
 });
 document.getElementById('brInput').addEventListener('change',function(){brLoadFiles(Array.from(this.files));});
 
@@ -1048,7 +1048,7 @@ var lgFiles=[],lgCrops={},lgRunning=false,lgLQList=[];
 document.getElementById('lgZone').addEventListener('click',function(){document.getElementById('lgInput').click();});
 document.getElementById('lgZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
 document.getElementById('lgZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
-document.getElementById('lgZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';lgLoad(Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/')||f.name.toLowerCase().endsWith('.pdf');}));});
+document.getElementById('lgZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';lgLoad(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp');}));});
 document.getElementById('lgInput').addEventListener('change',function(){lgLoad(Array.from(this.files));this.value='';});
 document.getElementById('lgBtn').addEventListener('click',function(){lgRun();});
 
@@ -1122,6 +1122,7 @@ function lgOpenCrop(idx){
 
 async function lgRun(){
   if(lgRunning||!lgFiles.length)return;lgRunning=true;
+  var lgSingleBlob=null;
   var W=200,H=200,bg=document.getElementById('lgBg').value,fit=document.getElementById('lgFit').value;
   var doRmBg=document.getElementById('lgRemoveBg').checked;
   var fmt=(doRmBg||bg==='transparent')?'image/png':'image/jpeg',ext=fmt==='image/jpeg'?'.jpg':'.png';
@@ -1136,7 +1137,7 @@ async function lgRun(){
       var isLQ=lgLQList.some(function(x){return x.name===file.name;});
       var reader=new FileReader();reader.onload=function(e){
         var img=new Image();img.onload=function(){
-          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(isLQ){lqZip.file('LOW_QUALITY/'+fn,blob);lqN++;}else{goodZip.file(fn,blob);goodN++;}done++;resolve();}
+          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){lgSingleBlob=blob;}if(isLQ){lqZip.file('LOW_QUALITY/'+fn,blob);lqN++;}else{goodZip.file(fn,blob);goodN++;}done++;resolve();}
           var srcCanvas=null,srcW=img.naturalWidth,srcH=img.naturalHeight;
           if(crop){srcCanvas=document.createElement('canvas');srcCanvas.width=crop.w;srcCanvas.height=crop.h;srcCanvas.getContext('2d').drawImage(img,crop.x,crop.y,crop.w,crop.h,0,0,crop.w,crop.h);srcW=crop.w;srcH=crop.h;}
           if(fit==='fill'){coverResize(img,srcCanvas,srcW,srcH,W,H,fmt,done2);}
@@ -1147,7 +1148,7 @@ async function lgRun(){
   }
   document.getElementById('lgProgBar').style.width='100%';document.getElementById('lgProgPct').textContent='100%';
   document.getElementById('lgProgLbl').textContent='🎉 Done! '+done+'/'+total+(lqN>0?' · '+lqN+' low quality separated':'')+'.';
-  if(total===1&&done===1){var z=goodN>0?goodZip:lqZip;z.generateAsync({type:'blob'}).then(function(b){dlBlob(b,lgFiles[0].name.replace(/\.[^.]+$/,'')+ext);});}
+  if(total===1&&done===1&&lgSingleBlob){dlBlob(lgSingleBlob,lgFiles[0].name.replace(/\.[^.]+$/,'')+ext);}
   else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'logos_200x200.zip');});if(lqN>0)setTimeout(function(){lqZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'logos_LOW_QUALITY.zip');});},800);}
   document.getElementById('lgBtn').disabled=false;lgRunning=false;
 }
@@ -1157,7 +1158,7 @@ var cvFiles=[],cvCrops={},cvRunning=false,cvLQList=[];
 document.getElementById('cvZone').addEventListener('click',function(){document.getElementById('cvInput').click();});
 document.getElementById('cvZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
 document.getElementById('cvZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
-document.getElementById('cvZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';cvLoad(Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/')||f.name.toLowerCase().endsWith('.pdf');}));});
+document.getElementById('cvZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';cvLoad(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp');}));});
 document.getElementById('cvInput').addEventListener('change',function(){cvLoad(Array.from(this.files));this.value='';});
 document.getElementById('cvBtn').addEventListener('click',function(){cvRun();});
 
@@ -1231,6 +1232,7 @@ function cvOpenCrop(idx){
 
 async function cvRun(){
   if(cvRunning||!cvFiles.length)return;cvRunning=true;
+  var cvSingleBlob=null;
   var W=750,H=300,bg=document.getElementById('cvBg').value,fit=document.getElementById('cvFit').value;
   var doRmBg=document.getElementById('cvRemoveBg').checked;
   var fmt=(doRmBg||bg==='transparent')?'image/png':'image/jpeg',ext=fmt==='image/jpeg'?'.jpg':'.png';
@@ -1245,7 +1247,7 @@ async function cvRun(){
       var isLQ=cvLQList.some(function(x){return x.name===file.name;});
       var reader=new FileReader();reader.onload=function(e){
         var img=new Image();img.onload=function(){
-          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(isLQ){lqZip.file('LOW_QUALITY/'+fn,blob);lqN++;}else{goodZip.file(fn,blob);goodN++;}done++;resolve();}
+          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){cvSingleBlob=blob;}if(isLQ){lqZip.file('LOW_QUALITY/'+fn,blob);lqN++;}else{goodZip.file(fn,blob);goodN++;}done++;resolve();}
           var srcCanvas=null,srcW=img.naturalWidth,srcH=img.naturalHeight;
           if(crop){srcCanvas=document.createElement('canvas');srcCanvas.width=crop.w;srcCanvas.height=crop.h;srcCanvas.getContext('2d').drawImage(img,crop.x,crop.y,crop.w,crop.h,0,0,crop.w,crop.h);srcW=crop.w;srcH=crop.h;}
           if(fit==='fill'){coverResize(img,srcCanvas,srcW,srcH,W,H,fmt,done2);}
@@ -1256,7 +1258,7 @@ async function cvRun(){
   }
   document.getElementById('cvProgBar').style.width='100%';document.getElementById('cvProgPct').textContent='100%';
   document.getElementById('cvProgLbl').textContent='🎉 Done! '+done+'/'+total+(lqN>0?' · '+lqN+' low quality separated':'')+'.';
-  if(total===1&&done===1){var z=goodN>0?goodZip:lqZip;z.generateAsync({type:'blob'}).then(function(b){dlBlob(b,cvFiles[0].name.replace(/\.[^.]+$/,'')+ext);});}
+  if(total===1&&done===1&&cvSingleBlob){dlBlob(cvSingleBlob,cvFiles[0].name.replace(/\.[^.]+$/,'')+ext);}
   else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'covers_750x300.zip');});if(lqN>0)setTimeout(function(){lqZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'covers_LOW_QUALITY.zip');});},800);}
   document.getElementById('cvBtn').disabled=false;cvRunning=false;
 }
