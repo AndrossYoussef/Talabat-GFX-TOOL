@@ -189,7 +189,7 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
         <p style="font-size:13px;color:var(--t2)">Drop logos here or click to browse</p>
         <small style="font-size:11px;color:var(--t3)">PNG · JPG · JPEG · WebP · PDF — up to 1000 files</small>
       </div>
-      <input type="file" id="lgInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
+      <input type="file" id="lgInput" accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.pdf" multiple style="display:none">
       <div id="lgStats" style="display:none;margin-bottom:1rem;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:12px;font-weight:700">📁 <span id="lgCount">0</span> files — <strong id="lgMB" style="color:var(--org)">0</strong> MB</span>
         <button onclick="lgClear()" style="margin-left:auto;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,107,53,.3);background:rgba(255,107,53,.08);color:var(--org);font-size:11px;cursor:pointer">✕ Clear</button>
@@ -231,7 +231,7 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
         <p style="font-size:13px;color:var(--t2)">Drop covers here or click to browse</p>
         <small style="font-size:11px;color:var(--t3)">PNG · JPG · JPEG · WebP · PDF — up to 1000 files</small>
       </div>
-      <input type="file" id="cvInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
+      <input type="file" id="cvInput" accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.pdf" multiple style="display:none">
       <div id="cvStats" style="display:none;margin-bottom:1rem;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:12px;font-weight:700">📁 <span id="cvCount">0</span> files — <strong id="cvMB" style="color:var(--org)">0</strong> MB</span>
         <button onclick="cvClear()" style="margin-left:auto;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,107,53,.3);background:rgba(255,107,53,.08);color:var(--org);font-size:11px;cursor:pointer">✕ Clear</button>
@@ -278,7 +278,7 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     <p style="font-size:14px;color:var(--t2)">Drop up to 1000 images here or click to browse</p>
     <small style="font-size:11px;color:var(--t3)">PNG · JPG · JPEG · WebP · PDF — multiple files</small>
   </div>
-  <input type="file" id="brInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
+  <input type="file" id="brInput" accept="image/*,.jpg,.jpeg,.png,.webp,.avif,.pdf" multiple style="display:none">
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
     <a href="https://cleanup.pictures" target="_blank" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:10px;text-decoration:none;transition:background .2s" onmouseover="this.style.background='rgba(74,222,128,.12)'" onmouseout="this.style.background='rgba(74,222,128,.05)'">
@@ -435,7 +435,7 @@ function containResize(srcImg, srcCanvas, srcW, srcH, W, H, bg, fmt, callback){
   canvas.width=W;canvas.height=H;
   var ctx=canvas.getContext('2d');
   // fill background
-  if(bg==='transparent'){ctx.clearRect(0,0,W,H);}
+  if(bg==='transparent'){ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);}
   else{ctx.fillStyle=(bg==='orange')?'#FF6B35':bg;ctx.fillRect(0,0,W,H);}
   // scale to fit inside WxH keeping aspect ratio
   var scale=Math.min(W/srcW, H/srcH);
@@ -548,7 +548,7 @@ document.getElementById('brZone').addEventListener('dragover',function(e){e.prev
 document.getElementById('brZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
 document.getElementById('brZone').addEventListener('drop',function(e){
   e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';
-  brLoadFiles(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp');}));
+  brLoadFiles(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp')||n.endsWith('.avif');}));
 });
 document.getElementById('brInput').addEventListener('change',function(){brLoadFiles(Array.from(this.files));});
 
@@ -760,9 +760,9 @@ document.getElementById('brStartBtn').addEventListener('click',function(){
   var fitMode=document.getElementById('brFit').value;
   var doAutoTrim=false;
   var doRemoveBg=document.getElementById('brRemoveBg').checked;
-  // Transparency only survives in PNG — switch format automatically when relevant
-  var outFmt=(doRemoveBg||bg==='transparent')?'image/png':'image/jpeg';
-  var outExt=outFmt==='image/png'?'.png':'.jpg';
+  // Output is always exported as JPG (transparent selections are flattened to white)
+  var outFmt='image/jpeg';
+  var outExt='.jpg';
   var total=brFiles.length,done=0,failed=0;
   var zip=new JSZip();
   var singleBlob=null,singleName=null;
@@ -1066,7 +1066,7 @@ var lgFiles=[],lgCrops={},lgRunning=false;
 document.getElementById('lgZone').addEventListener('click',function(){document.getElementById('lgInput').click();});
 document.getElementById('lgZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
 document.getElementById('lgZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
-document.getElementById('lgZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';lgLoad(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp');}));});
+document.getElementById('lgZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';lgLoad(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp')||n.endsWith('.avif');}));});
 document.getElementById('lgInput').addEventListener('change',function(){lgLoad(Array.from(this.files));this.value='';});
 document.getElementById('lgBtn').addEventListener('click',function(){lgRun();});
 
@@ -1137,7 +1137,7 @@ async function lgRun(){
   var lgSingleBlob=null;
   var W=200,H=200,bg=document.getElementById('lgBg').value,fit=document.getElementById('lgFit').value;
   var doRmBg=document.getElementById('lgRemoveBg').checked;
-  var fmt=(doRmBg||bg==='transparent')?'image/png':'image/jpeg',ext=fmt==='image/jpeg'?'.jpg':'.png';
+  var fmt='image/jpeg',ext='.jpg';
   document.getElementById('lgBtn').disabled=true;document.getElementById('lgProg').style.display='block';
   var total=lgFiles.length,done=0,goodZip=new JSZip(),goodN=0;
   for(var i=0;i<lgFiles.length;i++){
@@ -1170,7 +1170,7 @@ var cvFiles=[],cvCrops={},cvRunning=false;
 document.getElementById('cvZone').addEventListener('click',function(){document.getElementById('cvInput').click();});
 document.getElementById('cvZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
 document.getElementById('cvZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
-document.getElementById('cvZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';cvLoad(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp');}));});
+document.getElementById('cvZone').addEventListener('drop',function(e){e.preventDefault();this.style.borderColor='rgba(255,107,53,.25)';cvLoad(Array.from(e.dataTransfer.files).filter(function(f){var n=f.name.toLowerCase();return f.type.startsWith('image/')||n.endsWith('.pdf')||n.endsWith('.jpg')||n.endsWith('.jpeg')||n.endsWith('.png')||n.endsWith('.webp')||n.endsWith('.avif');}));});
 document.getElementById('cvInput').addEventListener('change',function(){cvLoad(Array.from(this.files));this.value='';});
 document.getElementById('cvBtn').addEventListener('click',function(){cvRun();});
 
@@ -1241,7 +1241,7 @@ async function cvRun(){
   var cvSingleBlob=null;
   var W=750,H=300,bg=document.getElementById('cvBg').value,fit=document.getElementById('cvFit').value;
   var doRmBg=document.getElementById('cvRemoveBg').checked;
-  var fmt=(doRmBg||bg==='transparent')?'image/png':'image/jpeg',ext=fmt==='image/jpeg'?'.jpg':'.png';
+  var fmt='image/jpeg',ext='.jpg';
   document.getElementById('cvBtn').disabled=true;document.getElementById('cvProg').style.display='block';
   var total=cvFiles.length,done=0,goodZip=new JSZip(),goodN=0;
   for(var i=0;i<cvFiles.length;i++){
