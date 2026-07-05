@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Talabat Images Editing</title>
+<title>Talabat Studio</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -152,11 +152,27 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 
 <!-- ═══ HERO ═══ -->
 <div class="hero">
-  <h1><span style="font-family:'Nunito',sans-serif;font-weight:900;font-size:1.3em;letter-spacing:-1px;color:var(--org)">talabat</span> <span>Images Editing</span></h1>
+  <h1><span style="font-family:'Nunito',sans-serif;font-weight:900;font-size:1.3em;letter-spacing:-1px;color:var(--org)">talabat</span> <span>Studio</span></h1>
   <p>Build prompts from item names, generate professional food images, and download everything as a ZIP — all in one page.</p>
 </div>
 
 <div class="wrap">
+
+<!-- ANNOUNCEMENT BANNER -->
+<div style="margin-bottom:1.5rem;padding:12px 20px;background:linear-gradient(135deg,rgba(232,25,44,.12),rgba(255,107,53,.12));border:1px solid rgba(255,107,53,.35);border-radius:12px;display:flex;align-items:center;gap:12px;animation:pulse-border 2.5s ease-in-out infinite">
+  <span style="font-size:22px">🚀</span>
+  <div style="flex:1">
+    <span style="font-size:13px;font-weight:800;color:var(--org);letter-spacing:.3px">COMING SOON</span>
+    <span style="font-size:13px;font-weight:600;color:#f0f0f6;margin-left:8px">— Menu Items Image Generator</span>
+    <span style="font-size:13px;font-weight:900;background:linear-gradient(90deg,#FF5900,#CFFF00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-left:4px">Very Sooooon! 🔥</span>
+  </div>
+</div>
+<style>
+@keyframes pulse-border {
+  0%,100%{border-color:rgba(255,107,53,.35);box-shadow:0 0 0 0 rgba(255,107,53,0)}
+  50%{border-color:rgba(255,107,53,.8);box-shadow:0 0 12px rgba(255,107,53,.25)}
+}
+</style>
 
 <!-- ══ A & B SIDE BY SIDE ══ -->
 <div class="divider"></div>
@@ -195,9 +211,14 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
           </select></div>
       </div>
       <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin-bottom:8px"><input type="checkbox" id="lgRemoveBg" style="accent-color:var(--org)"> 🔲 Remove Background</label>
-      <a href="https://lamacleaner.org/#tools" target="_blank" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:8px;text-decoration:none;margin-bottom:8px">
-        <span>🪄</span><div><div style="font-size:11px;font-weight:700;color:#4ade80">Lama Cleaner</div><div style="font-size:9px;color:var(--t2)">AI removal ↗</div></div>
-      </a>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <a href="https://cleanup.pictures" target="_blank" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:8px;text-decoration:none">
+          <span>🪄</span><div><div style="font-size:11px;font-weight:700;color:#4ade80">Cleanup.pictures</div><div style="font-size:9px;color:var(--t2)">AI removal ↗</div></div>
+        </a>
+        <a href="https://magicstudio.com/magiceraser/" target="_blank" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:8px;text-decoration:none">
+          <span>✨</span><div><div style="font-size:11px;font-weight:700;color:#4ade80">Magic Eraser</div><div style="font-size:9px;color:var(--t2)">AI removal ↗</div></div>
+        </a>
+      </div>
       <div id="lgProg" style="display:none;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span id="lgProgLbl" style="font-size:10px;color:var(--t2)">Processing...</span><span id="lgProgPct" style="font-size:10px;font-weight:700;color:var(--org)">0%</span></div>
         <div style="background:rgba(255,255,255,.05);border-radius:100px;height:5px;overflow:hidden"><div id="lgProgBar" style="height:100%;width:0%;border-radius:100px;background:linear-gradient(90deg,#E8192C,#FF6B35);transition:width .3s"></div></div>
@@ -237,9 +258,14 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
           </select></div>
       </div>
       <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);cursor:pointer;margin-bottom:8px"><input type="checkbox" id="cvRemoveBg" style="accent-color:var(--org)"> 🔲 Remove Background</label>
-      <a href="https://lamacleaner.org/#tools" target="_blank" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:8px;text-decoration:none;margin-bottom:8px">
-        <span>🪄</span><div><div style="font-size:11px;font-weight:700;color:#4ade80">Lama Cleaner</div><div style="font-size:9px;color:var(--t2)">AI removal ↗</div></div>
-      </a>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <a href="https://cleanup.pictures" target="_blank" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:8px;text-decoration:none">
+          <span>🪄</span><div><div style="font-size:11px;font-weight:700;color:#4ade80">Cleanup.pictures</div><div style="font-size:9px;color:var(--t2)">AI removal ↗</div></div>
+        </a>
+        <a href="https://magicstudio.com/magiceraser/" target="_blank" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:8px;text-decoration:none">
+          <span>✨</span><div><div style="font-size:11px;font-weight:700;color:#4ade80">Magic Eraser</div><div style="font-size:9px;color:var(--t2)">AI removal ↗</div></div>
+        </a>
+      </div>
       <div id="cvProg" style="display:none;margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span id="cvProgLbl" style="font-size:10px;color:var(--t2)">Processing...</span><span id="cvProgPct" style="font-size:10px;font-weight:700;color:var(--org)">0%</span></div>
         <div style="background:rgba(255,255,255,.05);border-radius:100px;height:5px;overflow:hidden"><div id="cvProgBar" style="height:100%;width:0%;border-radius:100px;background:linear-gradient(90deg,#E8192C,#FF6B35);transition:width .3s"></div></div>
@@ -264,14 +290,24 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   </div>
   <input type="file" id="brInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
 
-  <a href="https://lamacleaner.org/#tools" target="_blank" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:10px;text-decoration:none;margin-bottom:1rem;transition:background .2s" onmouseover="this.style.background='rgba(74,222,128,.12)'" onmouseout="this.style.background='rgba(74,222,128,.05)'">
-    <span style="font-size:24px">🪄</span>
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:700;color:#4ade80">Lama Cleaner — AI Object &amp; Text Removal</div>
-      <div style="font-size:11px;color:var(--t2);margin-top:2px">Free AI inpainting — Healing Brush quality. Clean your image there, then upload here to resize.</div>
-    </div>
-    <span style="font-size:12px;color:#4ade80;font-weight:700;white-space:nowrap">Open ↗</span>
-  </a>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
+    <a href="https://cleanup.pictures" target="_blank" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:10px;text-decoration:none;transition:background .2s" onmouseover="this.style.background='rgba(74,222,128,.12)'" onmouseout="this.style.background='rgba(74,222,128,.05)'">
+      <span style="font-size:24px">🪄</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#4ade80">Cleanup.pictures</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">AI object &amp; text removal. Clean then upload here.</div>
+      </div>
+      <span style="font-size:12px;color:#4ade80;font-weight:700;white-space:nowrap">Open ↗</span>
+    </a>
+    <a href="https://magicstudio.com/magiceraser/" target="_blank" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(74,222,128,.05);border:1px solid rgba(74,222,128,.18);border-radius:10px;text-decoration:none;transition:background .2s" onmouseover="this.style.background='rgba(74,222,128,.12)'" onmouseout="this.style.background='rgba(74,222,128,.05)'">
+      <span style="font-size:24px">✨</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#4ade80">Magic Eraser — Magic Studio</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">AI inpainting &amp; erasing. Clean your image then resize here.</div>
+      </div>
+      <span style="font-size:12px;color:#4ade80;font-weight:700;white-space:nowrap">Open ↗</span>
+    </a>
+  </div>
 
   <div id="brStats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
     <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="brCount">0</span> images loaded</span>
