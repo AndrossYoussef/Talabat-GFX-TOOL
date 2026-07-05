@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pica/7.1.1/pica.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -429,11 +430,147 @@ function show(id){var el=document.getElementById(id);if(el)el.classList.remove('
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 function dlBlob(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
 
+// ══ CONCURRENCY POOL — runs N resizes at once instead of one-at-a-time.
+// Big win for 1000-image batches since decode/resize/encode overlap instead of
+// waiting on each other serially.
+function processPool(items, limit, worker, onEach, isStoppedFn){
+  return new Promise(function(resolve){
+    var idx=0, active=0, results=new Array(items.length);
+    function next(){
+      if((idx>=items.length || (isStoppedFn&&isStoppedFn())) && active===0){resolve(results);return;}
+      while(active<limit && idx<items.length && !(isStoppedFn&&isStoppedFn())){
+        (function(i){
+          active++;
+          worker(items[i], i).then(function(r){
+            results[i]=r; active--; if(onEach) onEach(i,r); next();
+          }).catch(function(){
+            results[i]=null; active--; if(onEach) onEach(i,null); next();
+          });
+        })(idx);
+        idx++;
+      }
+    }
+    next();
+  });
+}
+
+// ══ HOVER BEFORE/AFTER PREVIEW ══
+// Shows a floating box with the original image next to a live-generated preview
+// of what it'll look like with the CURRENT settings (crop/background/remove-bg/size)
+// applied — lets people catch bad crops or background-removal issues before running
+// a 1000-image batch instead of after.
+var hoverPreviewEl=null, hoverTimer=null, hoverPreviewCache={};
+function ensureHoverPreviewEl(){
+  if(hoverPreviewEl)return hoverPreviewEl;
+  var el=document.createElement('div');
+  el.id='hoverPreviewBox';
+  el.style.cssText='position:fixed;z-index:9999;display:none;background:#14141f;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px;box-shadow:0 10px 34px rgba(0,0,0,.55);pointer-events:none;';
+  el.innerHTML=
+    '<div style="display:flex;gap:10px;align-items:flex-start">'+
+      '<div style="text-align:center"><div style="font-size:9px;letter-spacing:.5px;color:#888;margin-bottom:5px;font-weight:700">BEFORE</div>'+
+      '<img id="hoverPreviewBefore" style="width:140px;height:140px;object-fit:contain;border-radius:6px;background:repeating-conic-gradient(#20202c 0% 25%,#181822 0% 50%) 50%/16px 16px">'+
+      '</div>'+
+      '<div style="text-align:center"><div style="font-size:9px;letter-spacing:.5px;color:var(--org);margin-bottom:5px;font-weight:700">AFTER</div>'+
+      '<img id="hoverPreviewAfter" style="width:140px;height:140px;object-fit:contain;border-radius:6px;background:repeating-conic-gradient(#20202c 0% 25%,#181822 0% 50%) 50%/16px 16px">'+
+      '</div>'+
+    '</div>'+
+    '<div id="hoverPreviewStatus" style="font-size:9px;color:#888;text-align:center;margin-top:6px">Generating preview…</div>';
+  document.body.appendChild(el);
+  hoverPreviewEl=el;
+  return el;
+}
+function positionHoverPreview(e){
+  var el=hoverPreviewEl;if(!el)return;
+  var x=e.clientX+18,y=e.clientY+18;
+  var vw=window.innerWidth,vh=window.innerHeight;
+  el.style.left=Math.min(x,vw-320)+'px';
+  el.style.top=Math.min(y,vh-230)+'px';
+}
+// file: the File object. cropGetterFn: fn()->crop obj or null. optsGetterFn: fn()->{W,H,bg,fitMode,doRemoveBg,outFmt} read live from the current UI controls.
+function wireHoverPreview(div, file, cropGetterFn, optsGetterFn, beforeSrc){
+  div.addEventListener('mousemove',function(e){if(hoverPreviewEl&&hoverPreviewEl.style.display==='block')positionHoverPreview(e);});
+  div.addEventListener('mouseenter',function(e){
+    clearTimeout(hoverTimer);
+    var evt=e;
+    hoverTimer=setTimeout(function(){
+      var el=ensureHoverPreviewEl();
+      positionHoverPreview(evt);
+      el.style.display='block';
+      var beforeImg=document.getElementById('hoverPreviewBefore');
+      var afterImg=document.getElementById('hoverPreviewAfter');
+      var status=document.getElementById('hoverPreviewStatus');
+      beforeImg.src=beforeSrc;afterImg.src='';status.textContent='Generating preview…';
+      var opts=optsGetterFn();
+      opts.crop=cropGetterFn();
+      opts.doAutoTrim=false;
+      var key=file.name+'|'+file.size+'|'+JSON.stringify(opts);
+      if(hoverPreviewCache[key]){
+        afterImg.src=hoverPreviewCache[key];status.textContent='Preview (current settings)';return;
+      }
+      brResizeFile(file,opts,function(blob){
+        if(!hoverPreviewEl||hoverPreviewEl.style.display!=='block')return;
+        if(!blob){status.textContent='Preview unavailable';return;}
+        var url=URL.createObjectURL(blob);
+        hoverPreviewCache[key]=url;
+        afterImg.src=url;status.textContent='Preview (current settings)';
+      });
+    },200);
+  });
+  div.addEventListener('mouseleave',function(){clearTimeout(hoverTimer);if(hoverPreviewEl)hoverPreviewEl.style.display='none';});
+}
+
+// ══ HIGH-QUALITY SCALE ══
+// Primary path: pica.js — does real Lanczos resampling + unsharp mask, the same class
+// of algorithm dedicated resize tools use, which is materially sharper than anything
+// browser drawImage() can produce on its own.
+// Fallback: gradual step-down drawImage (used only if pica fails to load, e.g. offline).
+var picaInstance = (typeof window.pica === 'function') ? window.pica() : null;
+
+function hqScaleFallback(source, sw, sh, dw, dh){
+  var curSrc=source, curW=sw, curH=sh;
+  while(curW>dw*2 || curH>dh*2){
+    var nw=Math.max(dw, Math.round(curW*0.6));
+    var nh=Math.max(dh, Math.round(curH*0.6));
+    var tmp=document.createElement('canvas'); tmp.width=nw; tmp.height=nh;
+    var tctx=tmp.getContext('2d',{alpha:true});
+    tctx.imageSmoothingEnabled=true; tctx.imageSmoothingQuality='high';
+    tctx.drawImage(curSrc,0,0,curW,curH,0,0,nw,nh);
+    curSrc=tmp; curW=nw; curH=nh;
+  }
+  var out=document.createElement('canvas'); out.width=dw; out.height=dh;
+  var octx=out.getContext('2d',{alpha:true});
+  octx.imageSmoothingEnabled=true; octx.imageSmoothingQuality='high';
+  octx.drawImage(curSrc,0,0,curW,curH,0,0,dw,dh);
+  return out;
+}
+
+async function hqScale(source, sw, sh, dw, dh){
+  var dest=document.createElement('canvas'); dest.width=dw; dest.height=dh;
+  if(picaInstance){
+    try{
+      var from=source;
+      if(!(source.tagName==='CANVAS'||source.tagName==='IMG')){
+        // normalize other sources (e.g. offscreen canvases) — should already be fine
+        from=source;
+      }
+      await picaInstance.resize(from, dest, {
+        quality: 3,           // 0-3, 3 = highest quality (Lanczos) — this alone is what
+        alpha: true            // produces clean results; no unsharp pass needed on top
+      });
+      return dest;
+    }catch(e){
+      // fall through to manual method below
+    }
+  }
+  return hqScaleFallback(source, sw, sh, dw, dh);
+}
+
 // ══ CORE RESIZE — contain fit, NO stretch ══
-function containResize(srcImg, srcCanvas, srcW, srcH, W, H, bg, fmt, callback){
+async function containResize(srcImg, srcCanvas, srcW, srcH, W, H, bg, fmt, callback){
   var canvas=document.createElement('canvas');
   canvas.width=W;canvas.height=H;
   var ctx=canvas.getContext('2d');
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
   // fill background
   if(bg==='transparent'){ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);}
   else{ctx.fillStyle=(bg==='orange')?'#FF6B35':bg;ctx.fillRect(0,0,W,H);}
@@ -443,29 +580,26 @@ function containResize(srcImg, srcCanvas, srcW, srcH, W, H, bg, fmt, callback){
   var dh=Math.round(srcH*scale);
   var dx=Math.round((W-dw)/2);
   var dy=Math.round((H-dh)/2);
-  if(srcCanvas&&srcCanvas.tagName==='CANVAS'){
-    ctx.drawImage(srcCanvas,dx,dy,dw,dh);
-  } else {
-    ctx.drawImage(srcImg,dx,dy,dw,dh);
-  }
-  canvas.toBlob(function(blob){callback(blob);}, fmt, fmt==='image/jpeg'?0.92:undefined);
+  var src=(srcCanvas&&srcCanvas.tagName==='CANVAS')?srcCanvas:srcImg;
+  var scaled=await hqScale(src,srcW,srcH,dw,dh);
+  ctx.drawImage(scaled,dx,dy);
+  canvas.toBlob(function(blob){callback(blob);}, fmt, fmt==='image/jpeg'?1.0:undefined);
 }
 
-function coverResize(srcImg, srcCanvas, srcW, srcH, W, H, fmt, callback){
+async function coverResize(srcImg, srcCanvas, srcW, srcH, W, H, fmt, callback){
   var canvas=document.createElement('canvas');
   canvas.width=W;canvas.height=H;
   var ctx=canvas.getContext('2d');
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
   var scale=Math.max(W/srcW, H/srcH);
   var dw=Math.round(srcW*scale);
   var dh=Math.round(srcH*scale);
   var dx=Math.round((W-dw)/2);
   var dy=Math.round((H-dh)/2);
-  if(srcCanvas&&srcCanvas.tagName==='CANVAS'){
-    ctx.drawImage(srcCanvas,dx,dy,dw,dh);
-  } else {
-    ctx.drawImage(srcImg,dx,dy,dw,dh);
-  }
-  canvas.toBlob(function(blob){callback(blob);}, fmt, fmt==='image/jpeg'?0.92:undefined);
+  var src=(srcCanvas&&srcCanvas.tagName==='CANVAS')?srcCanvas:srcImg;
+  var scaled=await hqScale(src,srcW,srcH,dw,dh);
+  ctx.drawImage(scaled,dx,dy);
+  canvas.toBlob(function(blob){callback(blob);}, fmt, fmt==='image/jpeg'?1.0:undefined);
 }
 
 // ══ AUTO SMART TRIM ══
@@ -594,6 +728,11 @@ async function brLoadFiles(files){
       label.textContent=file.name;
       div.appendChild(img);div.appendChild(badge);div.appendChild(label);
       div.addEventListener('click',function(){brOpenCropModal(idx);});
+      wireHoverPreview(div,file,function(){return brCrops[idx]||null;},function(){
+        var sizeVal=document.getElementById('brSize').value;
+        var parts=sizeVal.split('x');
+        return {W:parseInt(parts[0]),H:parseInt(parts[1]),bg:document.getElementById('brBg').value,fitMode:document.getElementById('brFit').value,doRemoveBg:document.getElementById('brRemoveBg').checked,outFmt:'image/jpeg'};
+      },e.target.result);
       grid.appendChild(div);
     };
     reader.readAsDataURL(file);
@@ -748,7 +887,7 @@ document.getElementById('brCropClearBtn').addEventListener('click',function(){
 
 
 document.getElementById('brStopBtn').addEventListener('click',function(){brStopped=true;});
-document.getElementById('brStartBtn').addEventListener('click',function(){
+document.getElementById('brStartBtn').addEventListener('click',async function(){
   if(!brFiles.length||brRunning)return;
   brRunning=true;brStopped=false;
   document.getElementById('brStartBtn').disabled=true;
@@ -766,44 +905,45 @@ document.getElementById('brStartBtn').addEventListener('click',function(){
   var total=brFiles.length,done=0,failed=0;
   var zip=new JSZip();
   var singleBlob=null,singleName=null;
-  var i=0;
   var usedNames={};
-  function processNext(){
-    if(i>=brFiles.length||brStopped){
-      document.getElementById('brProgBar').style.width='100%';
-      document.getElementById('brProgPct').textContent='100%';
-      document.getElementById('brProgLbl').textContent=(brStopped?'⏹ Stopped. ':'🎉 Done! ')+done+'/'+total+' processed.';
-      if(total===1&&singleBlob){dlBlob(singleBlob,singleName);}
-      else if(done>0){zip.generateAsync({type:'blob'}).then(function(blob){dlBlob(blob,'talabat_batch_resized_'+W+'x'+H+'.zip');});}
-      document.getElementById('brStartBtn').disabled=false;
-      document.getElementById('brStartBtn').style.opacity='1';
-      document.getElementById('brStopBtn').style.display='none';
-      brRunning=false;return;
+  var CONCURRENCY=5; // process several images at once instead of one-by-one
+  await processPool(brFiles,CONCURRENCY,function(file,i){
+    return new Promise(function(resolve){
+      brResizeFile(file,{
+        W:W,H:H,bg:bg,fitMode:fitMode,doAutoTrim:doAutoTrim,doRemoveBg:doRemoveBg,
+        crop:brCrops[i]||null,outFmt:outFmt
+      },resolve);
+    });
+  },function(i,blob){
+    if(blob){
+      var fname=brFiles[i].name.replace(/\.[^.]+$/,'')+outExt;
+      if(usedNames[fname]){
+        usedNames[fname]++;
+        fname=brFiles[i].name.replace(/\.[^.]+$/,'')+'_'+usedNames[fname]+outExt;
+      } else {
+        usedNames[fname]=1;
+      }
+      if(total===1){singleBlob=blob;singleName=fname;}else{zip.file(fname,blob);}
+      done++;document.getElementById('brDone').textContent=done;
+    } else {
+      failed++;document.getElementById('brFail').textContent=failed;
     }
-    var pct=Math.round(i/total*100);
+    var processed=done+failed;
+    var pct=Math.round(processed/total*100);
     document.getElementById('brProgBar').style.width=pct+'%';
     document.getElementById('brProgPct').textContent=pct+'%';
-    document.getElementById('brProgLbl').textContent='Processing: '+brFiles[i].name+' ('+(i+1)+'/'+total+')';
-    document.getElementById('brLeft').textContent=total-i;
-    brResizeFile(brFiles[i],{
-      W:W,H:H,bg:bg,fitMode:fitMode,doAutoTrim:doAutoTrim,doRemoveBg:doRemoveBg,
-      crop:brCrops[i]||null,outFmt:outFmt
-    },function(blob){
-      if(blob){
-        var fname=brFiles[i].name.replace(/\.[^.]+$/,'')+outExt;
-        if(usedNames[fname]){
-          usedNames[fname]++;
-          fname=brFiles[i].name.replace(/\.[^.]+$/,'')+'_'+usedNames[fname]+outExt;
-        } else {
-          usedNames[fname]=1;
-        }
-        if(total===1){singleBlob=blob;singleName=fname;}else{zip.file(fname,blob);}done++;document.getElementById('brDone').textContent=done;
-      }
-      else{failed++;document.getElementById('brFail').textContent=failed;}
-      i++;setTimeout(processNext,0);
-    });
-  }
-  processNext();
+    document.getElementById('brProgLbl').textContent='Processing… ('+processed+'/'+total+')';
+    document.getElementById('brLeft').textContent=total-processed;
+  },function(){return brStopped;});
+  document.getElementById('brProgBar').style.width='100%';
+  document.getElementById('brProgPct').textContent='100%';
+  document.getElementById('brProgLbl').textContent=(brStopped?'⏹ Stopped. ':'🎉 Done! ')+done+'/'+total+' processed.';
+  if(total===1&&singleBlob){dlBlob(singleBlob,singleName);}
+  else if(done>0){zip.generateAsync({type:'blob'}).then(function(blob){dlBlob(blob,'talabat_batch_resized_'+W+'x'+H+'.zip');});}
+  document.getElementById('brStartBtn').disabled=false;
+  document.getElementById('brStartBtn').style.opacity='1';
+  document.getElementById('brStopBtn').style.display='none';
+  brRunning=false;
 });
 
 // Flood-fill background removal, operating on a canvas in place
@@ -946,7 +1086,7 @@ function brRotateCrop(deg){
   ctx.translate(c.width/2,c.height/2);
   ctx.rotate(deg*Math.PI/180);
   ctx.drawImage(imgEl,-sw/2,-sh/2);
-  var rotatedSrc=c.toDataURL('image/jpeg',0.95);
+  var rotatedSrc=c.toDataURL('image/jpeg',1.0);
   var newImg=new Image();
   newImg.onload=function(){
     brCropNatW=newImg.naturalWidth;brCropNatH=newImg.naturalHeight;
@@ -970,7 +1110,7 @@ function brRotateCrop(deg){
   ctx.translate(c.width/2,c.height/2);
   ctx.rotate(deg*Math.PI/180);
   ctx.drawImage(imgEl,-sw/2,-sh/2);
-  var src=c.toDataURL('image/jpeg',0.95);
+  var src=c.toDataURL('image/jpeg',1.0);
   imgEl.onload=function(){
     brCropNatW=imgEl.naturalWidth;
     brCropNatH=imgEl.naturalHeight;
@@ -997,7 +1137,7 @@ async function pdfToImages(file){
       canvas.width=viewport.width;canvas.height=viewport.height;
       var ctx=canvas.getContext('2d');
       await page.render({canvasContext:ctx,viewport:viewport}).promise;
-      var blob=await new Promise(function(res){canvas.toBlob(function(b){res(b);},'image/jpeg',0.95);});
+      var blob=await new Promise(function(res){canvas.toBlob(function(b){res(b);},'image/jpeg',1.0);});
       var baseName=file.name.replace(/\.pdf$/i,'');
       var suffix=pdf.numPages>1?'_page'+pageNum:'';
       images.push(new File([blob],baseName+suffix+'.jpg',{type:'image/jpeg'}));
@@ -1030,7 +1170,7 @@ function brRotateCrop(deg){
   ctx.translate(c.width/2,c.height/2);
   ctx.rotate(deg*Math.PI/180);
   ctx.drawImage(imgEl,-sw/2,-sh/2);
-  var src=c.toDataURL('image/jpeg',0.95);
+  var src=c.toDataURL('image/jpeg',1.0);
   imgEl.onload=function(){
     brCropNatW=imgEl.naturalWidth;
     brCropNatH=imgEl.naturalHeight;
@@ -1100,6 +1240,9 @@ async function lgLoad(files){
         
         div.appendChild(im);div.appendChild(cb);div.appendChild(lb);
         div.addEventListener('click',function(){lgOpenCrop(idx);});
+        wireHoverPreview(div,file,function(){return lgCrops[idx]||null;},function(){
+          return {W:200,H:200,bg:document.getElementById('lgBg').value,fitMode:document.getElementById('lgFit').value,doRemoveBg:document.getElementById('lgRemoveBg').checked,outFmt:'image/jpeg'};
+        },e.target.result);
         document.getElementById('lgGrid').appendChild(div);
       };img.src=e.target.result;
     };reader.readAsDataURL(file);
@@ -1134,33 +1277,32 @@ function lgOpenCrop(idx){
 
 async function lgRun(){
   if(lgRunning||!lgFiles.length)return;lgRunning=true;
-  var lgSingleBlob=null;
+  var lgSingleBlob=null,lgSingleName=null;
   var W=200,H=200,bg=document.getElementById('lgBg').value,fit=document.getElementById('lgFit').value;
   var doRmBg=document.getElementById('lgRemoveBg').checked;
   var fmt='image/jpeg',ext='.jpg';
   document.getElementById('lgBtn').disabled=true;document.getElementById('lgProg').style.display='block';
   var total=lgFiles.length,done=0,goodZip=new JSZip(),goodN=0;
-  for(var i=0;i<lgFiles.length;i++){
-    document.getElementById('lgProgBar').style.width=Math.round(i/total*100)+'%';
-    document.getElementById('lgProgPct').textContent=Math.round(i/total*100)+'%';
-    document.getElementById('lgProgLbl').textContent='Processing '+(i+1)+'/'+total+': '+lgFiles[i].name;
-    await new Promise(function(resolve){
-      var ix=i,file=lgFiles[ix],crop=lgCrops[ix]||null;
-      
-      var reader=new FileReader();reader.onload=function(e){
-        var img=new Image();img.onload=function(){
-          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){lgSingleBlob=blob;}goodZip.file(fn,blob);goodN++;done++;resolve();}
-          var srcCanvas=null,srcW=img.naturalWidth,srcH=img.naturalHeight;
-          if(crop){srcCanvas=document.createElement('canvas');srcCanvas.width=crop.w;srcCanvas.height=crop.h;srcCanvas.getContext('2d').drawImage(img,crop.x,crop.y,crop.w,crop.h,0,0,crop.w,crop.h);srcW=crop.w;srcH=crop.h;}
-          if(fit==='fill'){coverResize(img,srcCanvas,srcW,srcH,W,H,fmt,done2);}
-          else{containResize(img,srcCanvas,srcW,srcH,W,H,bg,fmt,done2);}
-        };img.src=e.target.result;
-      };reader.readAsDataURL(file);
+  var CONCURRENCY=5; // process several images at once instead of one-by-one
+  await processPool(lgFiles,CONCURRENCY,function(file,idx){
+    return new Promise(function(resolve){
+      brResizeFile(file,{W:W,H:H,bg:bg,fitMode:fit,doAutoTrim:false,doRemoveBg:doRmBg,crop:lgCrops[idx]||null,outFmt:fmt},resolve);
     });
-  }
+  },function(idx,blob){
+    done++;
+    var pct=Math.round(done/total*100);
+    document.getElementById('lgProgBar').style.width=pct+'%';
+    document.getElementById('lgProgPct').textContent=pct+'%';
+    document.getElementById('lgProgLbl').textContent='Processing '+done+'/'+total;
+    if(blob){
+      var fn=lgFiles[idx].name.replace(/\.[^.]+$/,'')+ext;
+      if(total===1){lgSingleBlob=blob;lgSingleName=fn;}
+      goodZip.file(fn,blob);goodN++;
+    }
+  });
   document.getElementById('lgProgBar').style.width='100%';document.getElementById('lgProgPct').textContent='100%';
-  document.getElementById('lgProgLbl').textContent='🎉 Done! '+done+'/'+total+'.';
-  if(total===1&&done===1&&lgSingleBlob){dlBlob(lgSingleBlob,lgFiles[0].name.replace(/\.[^.]+$/,'')+ext);}
+  document.getElementById('lgProgLbl').textContent='🎉 Done! '+goodN+'/'+total+'.';
+  if(total===1&&lgSingleBlob){dlBlob(lgSingleBlob,lgSingleName);}
   else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'logos_200x200.zip');});}
   document.getElementById('lgBtn').disabled=false;lgRunning=false;
 }
@@ -1204,6 +1346,9 @@ async function cvLoad(files){
         
         div.appendChild(im);div.appendChild(cb);div.appendChild(lb);
         div.addEventListener('click',function(){cvOpenCrop(idx);});
+        wireHoverPreview(div,file,function(){return cvCrops[idx]||null;},function(){
+          return {W:750,H:300,bg:document.getElementById('cvBg').value,fitMode:document.getElementById('cvFit').value,doRemoveBg:document.getElementById('cvRemoveBg').checked,outFmt:'image/jpeg'};
+        },e.target.result);
         document.getElementById('cvGrid').appendChild(div);
       };img.src=e.target.result;
     };reader.readAsDataURL(file);
@@ -1238,33 +1383,32 @@ function cvOpenCrop(idx){
 
 async function cvRun(){
   if(cvRunning||!cvFiles.length)return;cvRunning=true;
-  var cvSingleBlob=null;
+  var cvSingleBlob=null,cvSingleName=null;
   var W=750,H=300,bg=document.getElementById('cvBg').value,fit=document.getElementById('cvFit').value;
   var doRmBg=document.getElementById('cvRemoveBg').checked;
   var fmt='image/jpeg',ext='.jpg';
   document.getElementById('cvBtn').disabled=true;document.getElementById('cvProg').style.display='block';
   var total=cvFiles.length,done=0,goodZip=new JSZip(),goodN=0;
-  for(var i=0;i<cvFiles.length;i++){
-    document.getElementById('cvProgBar').style.width=Math.round(i/total*100)+'%';
-    document.getElementById('cvProgPct').textContent=Math.round(i/total*100)+'%';
-    document.getElementById('cvProgLbl').textContent='Processing '+(i+1)+'/'+total+': '+cvFiles[i].name;
-    await new Promise(function(resolve){
-      var ix=i,file=cvFiles[ix],crop=cvCrops[ix]||null;
-      
-      var reader=new FileReader();reader.onload=function(e){
-        var img=new Image();img.onload=function(){
-          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){cvSingleBlob=blob;}goodZip.file(fn,blob);goodN++;done++;resolve();}
-          var srcCanvas=null,srcW=img.naturalWidth,srcH=img.naturalHeight;
-          if(crop){srcCanvas=document.createElement('canvas');srcCanvas.width=crop.w;srcCanvas.height=crop.h;srcCanvas.getContext('2d').drawImage(img,crop.x,crop.y,crop.w,crop.h,0,0,crop.w,crop.h);srcW=crop.w;srcH=crop.h;}
-          if(fit==='fill'){coverResize(img,srcCanvas,srcW,srcH,W,H,fmt,done2);}
-          else{containResize(img,srcCanvas,srcW,srcH,W,H,bg,fmt,done2);}
-        };img.src=e.target.result;
-      };reader.readAsDataURL(file);
+  var CONCURRENCY=5; // process several images at once instead of one-by-one
+  await processPool(cvFiles,CONCURRENCY,function(file,idx){
+    return new Promise(function(resolve){
+      brResizeFile(file,{W:W,H:H,bg:bg,fitMode:fit,doAutoTrim:false,doRemoveBg:doRmBg,crop:cvCrops[idx]||null,outFmt:fmt},resolve);
     });
-  }
+  },function(idx,blob){
+    done++;
+    var pct=Math.round(done/total*100);
+    document.getElementById('cvProgBar').style.width=pct+'%';
+    document.getElementById('cvProgPct').textContent=pct+'%';
+    document.getElementById('cvProgLbl').textContent='Processing '+done+'/'+total;
+    if(blob){
+      var fn=cvFiles[idx].name.replace(/\.[^.]+$/,'')+ext;
+      if(total===1){cvSingleBlob=blob;cvSingleName=fn;}
+      goodZip.file(fn,blob);goodN++;
+    }
+  });
   document.getElementById('cvProgBar').style.width='100%';document.getElementById('cvProgPct').textContent='100%';
-  document.getElementById('cvProgLbl').textContent='🎉 Done! '+done+'/'+total+'.';
-  if(total===1&&done===1&&cvSingleBlob){dlBlob(cvSingleBlob,cvFiles[0].name.replace(/\.[^.]+$/,'')+ext);}
+  document.getElementById('cvProgLbl').textContent='🎉 Done! '+goodN+'/'+total+'.';
+  if(total===1&&cvSingleBlob){dlBlob(cvSingleBlob,cvSingleName);}
   else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'covers_750x300.zip');});}
   document.getElementById('cvBtn').disabled=false;cvRunning=false;
 }
