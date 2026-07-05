@@ -192,12 +192,7 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
       <input type="file" id="lgInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
       <div id="lgStats" style="display:none;margin-bottom:1rem;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:12px;font-weight:700">📁 <span id="lgCount">0</span> files — <strong id="lgMB" style="color:var(--org)">0</strong> MB</span>
-        <span id="lgLQBadge" style="display:none;font-size:10px;padding:2px 8px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171">⚠️ <span id="lgLQN">0</span> low quality</span>
         <button onclick="lgClear()" style="margin-left:auto;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,107,53,.3);background:rgba(255,107,53,.08);color:var(--org);font-size:11px;cursor:pointer">✕ Clear</button>
-      </div>
-      <div id="lgLQList" style="display:none;margin-bottom:8px;padding:8px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px">
-        <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:4px">⚠️ Low quality — will be in LOW_QUALITY/ folder:</div>
-        <div id="lgLQNames"></div>
       </div>
       <div id="lgGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:5px;max-height:170px;overflow-y:auto;margin-bottom:10px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -239,12 +234,7 @@ td.pc{max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
       <input type="file" id="cvInput" accept="image/*,.jpg,.jpeg,.png,.webp,.pdf" multiple style="display:none">
       <div id="cvStats" style="display:none;margin-bottom:1rem;padding:8px 12px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:12px;font-weight:700">📁 <span id="cvCount">0</span> files — <strong id="cvMB" style="color:var(--org)">0</strong> MB</span>
-        <span id="cvLQBadge" style="display:none;font-size:10px;padding:2px 8px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;color:#f87171">⚠️ <span id="cvLQN">0</span> low quality</span>
         <button onclick="cvClear()" style="margin-left:auto;padding:3px 10px;border-radius:6px;border:1px solid rgba(255,107,53,.3);background:rgba(255,107,53,.08);color:var(--org);font-size:11px;cursor:pointer">✕ Clear</button>
-      </div>
-      <div id="cvLQList" style="display:none;margin-bottom:8px;padding:8px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px">
-        <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:4px">⚠️ Low quality — will be in LOW_QUALITY/ folder:</div>
-        <div id="cvLQNames"></div>
       </div>
       <div id="cvGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:5px;max-height:170px;overflow-y:auto;margin-bottom:10px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -1070,17 +1060,9 @@ function calcBlurScore(imgEl){
     return cnt>0?sum/cnt:999;
   }catch(e){return 999;}
 }
-function checkImgLQ(img,file,minW,minH,minKB,blurT){
-  var r=[];
-  if(img.naturalWidth<minW||img.naturalHeight<minH)r.push('small size ('+img.naturalWidth+'×'+img.naturalHeight+'px)');
-  if(file.size<minKB*1024)r.push('small file ('+(file.size/1024).toFixed(0)+'KB)');
-  var b=calcBlurScore(img);
-  if(b<blurT)r.push('blurry (score:'+b.toFixed(0)+')');
-  return{isLQ:r.length>0,reasons:r};
-}
 
 // ══ LOGO RESIZER (A) ══
-var lgFiles=[],lgCrops={},lgRunning=false,lgLQList=[];
+var lgFiles=[],lgCrops={},lgRunning=false;
 document.getElementById('lgZone').addEventListener('click',function(){document.getElementById('lgInput').click();});
 document.getElementById('lgZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
 document.getElementById('lgZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
@@ -1098,30 +1080,24 @@ async function lgLoad(files){
     files=await expandPDFs(Array.from(files));
     document.getElementById('lgBtn').innerHTML=oT;
   }
-  lgFiles=Array.from(files).slice(0,1000);lgCrops={};lgLQList=[];
+  lgFiles=Array.from(files).slice(0,1000);lgCrops={};
   document.getElementById('lgCount').textContent=lgFiles.length;
   document.getElementById('lgMB').textContent=(lgFiles.reduce(function(a,f){return a+f.size;},0)/1048576).toFixed(1);
   document.getElementById('lgStats').style.display='flex';
   document.getElementById('lgBtn').disabled=false;document.getElementById('lgBtn').style.opacity='1';
-  document.getElementById('lgLQBadge').style.display='none';document.getElementById('lgLQList').style.display='none';
+  
   document.getElementById('lgGrid').innerHTML='';
   lgFiles.forEach(function(file,idx){
     var reader=new FileReader();reader.onload=function(e){
       var img=new Image();img.onload=function(){
-        var lq=checkImgLQ(img,file,200,200,20,80);
+        
         var div=document.createElement('div');
-        div.style.cssText='position:relative;border-radius:6px;overflow:hidden;border:1.5px solid '+(lq.isLQ?'rgba(239,68,68,.7)':'rgba(255,255,255,.07)')+';background:#1e1e2a;cursor:pointer';
-        div.title=(lq.isLQ?'⚠️ '+lq.reasons.join(', ')+' | ':'')+'Click to Smart Crop';
+        div.style.cssText='position:relative;border-radius:6px;overflow:hidden;border:1.5px solid rgba(255,255,255,.07);background:#1e1e2a;cursor:pointer';
+        div.title='Click to Smart Crop';
         var im=document.createElement('img');im.src=e.target.result;im.style.cssText='width:100%;aspect-ratio:1;object-fit:cover;display:block';
         var cb=document.createElement('div');cb.id='lgcrop-'+idx;cb.style.cssText='display:none;position:absolute;top:2px;right:2px;background:var(--org);color:#fff;font-size:8px;padding:1px 3px;border-radius:3px;font-weight:700';cb.textContent='✂️';
         var lb=document.createElement('div');lb.style.cssText='font-size:7px;color:#44445a;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';lb.textContent=file.name;
-        if(lq.isLQ){
-          var qb=document.createElement('div');qb.style.cssText='position:absolute;top:2px;left:2px;background:rgba(239,68,68,.9);color:#fff;font-size:8px;padding:1px 3px;border-radius:3px;font-weight:700';qb.textContent='⚠️';div.appendChild(qb);
-          lgLQList.push({name:file.name,reason:lq.reasons.join(', ')});
-          document.getElementById('lgLQBadge').style.display='inline';document.getElementById('lgLQN').textContent=lgLQList.length;
-          document.getElementById('lgLQList').style.display='block';
-          document.getElementById('lgLQNames').innerHTML=lgLQList.map(function(x){return '<div style="font-size:10px;margin:2px 0;padding:2px 8px;background:rgba(239,68,68,.08);border-radius:4px"><span style="color:#f87171;font-weight:700">'+x.name+'</span> <span style="color:var(--t3)">— '+x.reason+'</span></div>';}).join('');
-        }
+        
         div.appendChild(im);div.appendChild(cb);div.appendChild(lb);
         div.addEventListener('click',function(){lgOpenCrop(idx);});
         document.getElementById('lgGrid').appendChild(div);
@@ -1130,7 +1106,7 @@ async function lgLoad(files){
   });
 }
 
-function lgClear(){lgFiles=[];lgCrops={};lgLQList=[];document.getElementById('lgStats').style.display='none';document.getElementById('lgGrid').innerHTML='';document.getElementById('lgLQBadge').style.display='none';document.getElementById('lgLQList').style.display='none';document.getElementById('lgProg').style.display='none';document.getElementById('lgBtn').disabled=true;document.getElementById('lgBtn').style.opacity='.35';document.getElementById('lgInput').value='';}
+function lgClear(){lgFiles=[];lgCrops={};document.getElementById('lgStats').style.display='none';document.getElementById('lgGrid').innerHTML='';document.getElementById('lgProg').style.display='none';document.getElementById('lgBtn').disabled=true;document.getElementById('lgBtn').style.opacity='.35';document.getElementById('lgInput').value='';}
 
 function lgOpenCrop(idx){
   if(!lgFiles[idx])return;
@@ -1163,17 +1139,17 @@ async function lgRun(){
   var doRmBg=document.getElementById('lgRemoveBg').checked;
   var fmt=(doRmBg||bg==='transparent')?'image/png':'image/jpeg',ext=fmt==='image/jpeg'?'.jpg':'.png';
   document.getElementById('lgBtn').disabled=true;document.getElementById('lgProg').style.display='block';
-  var total=lgFiles.length,done=0,goodZip=new JSZip(),lqZip=new JSZip(),goodN=0,lqN=0;
+  var total=lgFiles.length,done=0,goodZip=new JSZip(),goodN=0;
   for(var i=0;i<lgFiles.length;i++){
     document.getElementById('lgProgBar').style.width=Math.round(i/total*100)+'%';
     document.getElementById('lgProgPct').textContent=Math.round(i/total*100)+'%';
     document.getElementById('lgProgLbl').textContent='Processing '+(i+1)+'/'+total+': '+lgFiles[i].name;
     await new Promise(function(resolve){
       var ix=i,file=lgFiles[ix],crop=lgCrops[ix]||null;
-      var isLQ=lgLQList.some(function(x){return x.name===file.name;});
+      
       var reader=new FileReader();reader.onload=function(e){
         var img=new Image();img.onload=function(){
-          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){lgSingleBlob=blob;}if(isLQ){lqZip.file('LOW_QUALITY/'+fn,blob);lqN++;}else{goodZip.file(fn,blob);goodN++;}done++;resolve();}
+          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){lgSingleBlob=blob;}goodZip.file(fn,blob);goodN++;done++;resolve();}
           var srcCanvas=null,srcW=img.naturalWidth,srcH=img.naturalHeight;
           if(crop){srcCanvas=document.createElement('canvas');srcCanvas.width=crop.w;srcCanvas.height=crop.h;srcCanvas.getContext('2d').drawImage(img,crop.x,crop.y,crop.w,crop.h,0,0,crop.w,crop.h);srcW=crop.w;srcH=crop.h;}
           if(fit==='fill'){coverResize(img,srcCanvas,srcW,srcH,W,H,fmt,done2);}
@@ -1183,14 +1159,14 @@ async function lgRun(){
     });
   }
   document.getElementById('lgProgBar').style.width='100%';document.getElementById('lgProgPct').textContent='100%';
-  document.getElementById('lgProgLbl').textContent='🎉 Done! '+done+'/'+total+(lqN>0?' · '+lqN+' low quality separated':'')+'.';
+  document.getElementById('lgProgLbl').textContent='🎉 Done! '+done+'/'+total+'.';
   if(total===1&&done===1&&lgSingleBlob){dlBlob(lgSingleBlob,lgFiles[0].name.replace(/\.[^.]+$/,'')+ext);}
-  else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'logos_200x200.zip');});if(lqN>0)setTimeout(function(){lqZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'logos_LOW_QUALITY.zip');});},800);}
+  else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'logos_200x200.zip');});}
   document.getElementById('lgBtn').disabled=false;lgRunning=false;
 }
 
 // ══ COVER RESIZER (B) ══
-var cvFiles=[],cvCrops={},cvRunning=false,cvLQList=[];
+var cvFiles=[],cvCrops={},cvRunning=false;
 document.getElementById('cvZone').addEventListener('click',function(){document.getElementById('cvInput').click();});
 document.getElementById('cvZone').addEventListener('dragover',function(e){e.preventDefault();this.style.borderColor='var(--org)';});
 document.getElementById('cvZone').addEventListener('dragleave',function(){this.style.borderColor='rgba(255,107,53,.25)';});
@@ -1208,30 +1184,24 @@ async function cvLoad(files){
     files=await expandPDFs(Array.from(files));
     document.getElementById('cvBtn').innerHTML=oT;
   }
-  cvFiles=Array.from(files).slice(0,1000);cvCrops={};cvLQList=[];
+  cvFiles=Array.from(files).slice(0,1000);cvCrops={};
   document.getElementById('cvCount').textContent=cvFiles.length;
   document.getElementById('cvMB').textContent=(cvFiles.reduce(function(a,f){return a+f.size;},0)/1048576).toFixed(1);
   document.getElementById('cvStats').style.display='flex';
   document.getElementById('cvBtn').disabled=false;document.getElementById('cvBtn').style.opacity='1';
-  document.getElementById('cvLQBadge').style.display='none';document.getElementById('cvLQList').style.display='none';
+  
   document.getElementById('cvGrid').innerHTML='';
   cvFiles.forEach(function(file,idx){
     var reader=new FileReader();reader.onload=function(e){
       var img=new Image();img.onload=function(){
-        var lq=checkImgLQ(img,file,750,300,50,80);
+        
         var div=document.createElement('div');
-        div.style.cssText='position:relative;border-radius:6px;overflow:hidden;border:1.5px solid '+(lq.isLQ?'rgba(239,68,68,.7)':'rgba(255,255,255,.07)')+';background:#1e1e2a;cursor:pointer';
-        div.title=(lq.isLQ?'⚠️ '+lq.reasons.join(', ')+' | ':'')+'Click to Smart Crop';
+        div.style.cssText='position:relative;border-radius:6px;overflow:hidden;border:1.5px solid rgba(255,255,255,.07);background:#1e1e2a;cursor:pointer';
+        div.title='Click to Smart Crop';
         var im=document.createElement('img');im.src=e.target.result;im.style.cssText='width:100%;aspect-ratio:1;object-fit:cover;display:block';
         var cb=document.createElement('div');cb.id='cvcrop-'+idx;cb.style.cssText='display:none;position:absolute;top:2px;right:2px;background:var(--org);color:#fff;font-size:8px;padding:1px 3px;border-radius:3px;font-weight:700';cb.textContent='✂️';
         var lb=document.createElement('div');lb.style.cssText='font-size:7px;color:#44445a;padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';lb.textContent=file.name;
-        if(lq.isLQ){
-          var qb=document.createElement('div');qb.style.cssText='position:absolute;top:2px;left:2px;background:rgba(239,68,68,.9);color:#fff;font-size:8px;padding:1px 3px;border-radius:3px;font-weight:700';qb.textContent='⚠️';div.appendChild(qb);
-          cvLQList.push({name:file.name,reason:lq.reasons.join(', ')});
-          document.getElementById('cvLQBadge').style.display='inline';document.getElementById('cvLQN').textContent=cvLQList.length;
-          document.getElementById('cvLQList').style.display='block';
-          document.getElementById('cvLQNames').innerHTML=cvLQList.map(function(x){return '<div style="font-size:10px;margin:2px 0;padding:2px 8px;background:rgba(239,68,68,.08);border-radius:4px"><span style="color:#f87171;font-weight:700">'+x.name+'</span> <span style="color:var(--t3)">— '+x.reason+'</span></div>';}).join('');
-        }
+        
         div.appendChild(im);div.appendChild(cb);div.appendChild(lb);
         div.addEventListener('click',function(){cvOpenCrop(idx);});
         document.getElementById('cvGrid').appendChild(div);
@@ -1240,7 +1210,7 @@ async function cvLoad(files){
   });
 }
 
-function cvClear(){cvFiles=[];cvCrops={};cvLQList=[];document.getElementById('cvStats').style.display='none';document.getElementById('cvGrid').innerHTML='';document.getElementById('cvLQBadge').style.display='none';document.getElementById('cvLQList').style.display='none';document.getElementById('cvProg').style.display='none';document.getElementById('cvBtn').disabled=true;document.getElementById('cvBtn').style.opacity='.35';document.getElementById('cvInput').value='';}
+function cvClear(){cvFiles=[];cvCrops={};document.getElementById('cvStats').style.display='none';document.getElementById('cvGrid').innerHTML='';document.getElementById('cvProg').style.display='none';document.getElementById('cvBtn').disabled=true;document.getElementById('cvBtn').style.opacity='.35';document.getElementById('cvInput').value='';}
 
 function cvOpenCrop(idx){
   if(!cvFiles[idx])return;
@@ -1273,17 +1243,17 @@ async function cvRun(){
   var doRmBg=document.getElementById('cvRemoveBg').checked;
   var fmt=(doRmBg||bg==='transparent')?'image/png':'image/jpeg',ext=fmt==='image/jpeg'?'.jpg':'.png';
   document.getElementById('cvBtn').disabled=true;document.getElementById('cvProg').style.display='block';
-  var total=cvFiles.length,done=0,goodZip=new JSZip(),lqZip=new JSZip(),goodN=0,lqN=0;
+  var total=cvFiles.length,done=0,goodZip=new JSZip(),goodN=0;
   for(var i=0;i<cvFiles.length;i++){
     document.getElementById('cvProgBar').style.width=Math.round(i/total*100)+'%';
     document.getElementById('cvProgPct').textContent=Math.round(i/total*100)+'%';
     document.getElementById('cvProgLbl').textContent='Processing '+(i+1)+'/'+total+': '+cvFiles[i].name;
     await new Promise(function(resolve){
       var ix=i,file=cvFiles[ix],crop=cvCrops[ix]||null;
-      var isLQ=cvLQList.some(function(x){return x.name===file.name;});
+      
       var reader=new FileReader();reader.onload=function(e){
         var img=new Image();img.onload=function(){
-          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){cvSingleBlob=blob;}if(isLQ){lqZip.file('LOW_QUALITY/'+fn,blob);lqN++;}else{goodZip.file(fn,blob);goodN++;}done++;resolve();}
+          function done2(blob){if(!blob){resolve();return;}var fn=file.name.replace(/\.[^.]+$/,'')+ext;if(total===1){cvSingleBlob=blob;}goodZip.file(fn,blob);goodN++;done++;resolve();}
           var srcCanvas=null,srcW=img.naturalWidth,srcH=img.naturalHeight;
           if(crop){srcCanvas=document.createElement('canvas');srcCanvas.width=crop.w;srcCanvas.height=crop.h;srcCanvas.getContext('2d').drawImage(img,crop.x,crop.y,crop.w,crop.h,0,0,crop.w,crop.h);srcW=crop.w;srcH=crop.h;}
           if(fit==='fill'){coverResize(img,srcCanvas,srcW,srcH,W,H,fmt,done2);}
@@ -1293,9 +1263,9 @@ async function cvRun(){
     });
   }
   document.getElementById('cvProgBar').style.width='100%';document.getElementById('cvProgPct').textContent='100%';
-  document.getElementById('cvProgLbl').textContent='🎉 Done! '+done+'/'+total+(lqN>0?' · '+lqN+' low quality separated':'')+'.';
+  document.getElementById('cvProgLbl').textContent='🎉 Done! '+done+'/'+total+'.';
   if(total===1&&done===1&&cvSingleBlob){dlBlob(cvSingleBlob,cvFiles[0].name.replace(/\.[^.]+$/,'')+ext);}
-  else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'covers_750x300.zip');});if(lqN>0)setTimeout(function(){lqZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'covers_LOW_QUALITY.zip');});},800);}
+  else{if(goodN>0)goodZip.generateAsync({type:'blob'}).then(function(b){dlBlob(b,'covers_750x300.zip');});}
   document.getElementById('cvBtn').disabled=false;cvRunning=false;
 }
 
