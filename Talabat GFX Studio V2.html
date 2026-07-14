@@ -200,6 +200,25 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
 </style>
 </head>
 <body>
+<script>
+(function(){
+  try {
+    var saved = localStorage.getItem('tlbTheme');
+    var wantsLight = saved ? (saved === 'light') : false;
+    if (wantsLight) document.body.classList.add('light-mode');
+  } catch(e) {}
+})();
+function toggleAppTheme(){
+  var isLight = document.body.classList.toggle('light-mode');
+  var btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = isLight ? '☀️' : '🌙';
+  try { localStorage.setItem('tlbTheme', isLight ? 'light' : 'dark'); } catch(e) {}
+}
+document.addEventListener('DOMContentLoaded', function(){
+  var btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = document.body.classList.contains('light-mode') ? '☀️' : '🌙';
+});
+</script>
 
 <!-- WEB WORKER SCRIPT INJECTION -->
 <script id="workerScript" type="javascript/worker">
@@ -608,7 +627,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
   </div>
   
   <div style="display:flex; align-items:center; gap:20px;">
-    <button id="themeToggle" aria-label="Toggle Dark/Light Mode" onclick="document.body.classList.toggle('light-mode');this.textContent=document.body.classList.contains('light-mode')?'🌙':'☀️'" title="Toggle theme" style="background:var(--inp);border:1px solid var(--b);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">☀️</button>
+    <button id="themeToggle" aria-label="Toggle Dark/Light Mode" onclick="toggleAppTheme()" title="Toggle theme" style="background:var(--inp);border:1px solid var(--b);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s">🌙</button>
     <button onclick="location.reload()" aria-label="Refresh Session" title="Refresh Session" class="refresh-btn" style="display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:4px 8px;transition:all .25s;opacity:.85" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.85'">
       <span style="font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.05em;text-transform:uppercase;">Refresh Session</span>
       <svg class="refresh-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
