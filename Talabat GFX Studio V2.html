@@ -292,7 +292,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
         var pre = hqDownscale(srcCanvas, dw, dh);
         ctx.drawImage(pre, dx, dy, dw, dh);
         if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = (CURRENT_QUALITY >= 1) ? 'image/png' : 'image/jpeg';
+        let outType = 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -306,7 +306,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
         var pre = hqDownscale(srcCanvas, dw, dh);
         ctx.drawImage(pre, dx, dy, dw, dh);
         if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = (CURRENT_QUALITY >= 1) ? 'image/png' : 'image/jpeg';
+        let outType = 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -351,7 +351,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
             ctx.drawImage(hqDownscale(srcCanvas, dw, dh), dx, dy, dw, dh);
         }
         if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = (CURRENT_QUALITY >= 1) ? 'image/png' : 'image/jpeg';
+        let outType = 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -466,7 +466,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
         var dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
         var pre = hqDownscale(srcCanvas, dw, dh);
         ctx.drawImage(pre, dx, dy, dw, dh);
-        let outType = (CURRENT_QUALITY >= 1) ? 'image/png' : 'image/jpeg';
+        let outType = 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -479,7 +479,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
         var dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
         var pre = hqDownscale(srcCanvas, dw, dh);
         ctx.drawImage(pre, dx, dy, dw, dh);
-        let outType = (CURRENT_QUALITY >= 1) ? 'image/png' : 'image/jpeg';
+        let outType = 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -493,7 +493,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
         var pre = hqDownscale(srcCanvas, dw, dh);
         ctx.drawImage(pre, dx, dy, dw, dh);
-        let outType = (CURRENT_QUALITY >= 1) ? 'image/png' : 'image/jpeg';
+        let outType = 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -542,7 +542,7 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
         }
         ctx.drawImage(tmp, padLeft, padTop, Math.round(dw), Math.round(dh));
         if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = (CURRENT_QUALITY >= 1) ? 'image/png' : 'image/jpeg';
+        let outType = 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -1024,7 +1024,8 @@ function notifyCompletion(msg) {
 
 // ══ WORKER POOL ARCHITECTURE ══
 const workerSrc = document.getElementById('workerScript').textContent;
-const workerUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(workerSrc);
+const workerBlob = new Blob([workerSrc], { type: 'application/javascript' });
+const workerUrl = URL.createObjectURL(workerBlob);
 const poolSize = Math.min(navigator.hardwareConcurrency || 4, 8); 
 const workerPool = [];
 const pendingCallbacks = new Map();
@@ -1148,7 +1149,7 @@ async function processLogoMainThread(file, opts) {
     }
 
     return new Promise(function(resolve) {
-        target.toBlob(function(blob) { resolve(blob); }, 'image/png');
+        target.toBlob(function(blob) { resolve(blob); }, 'image/jpeg', opts.quality || 0.95);
     });
 }
 
@@ -1370,7 +1371,7 @@ function createResizerTool(prefix, targetW, targetH) {
             ctx.translate(bw/2, bh/2); ctx.rotate(rad); ctx.drawImage(srcImg, -sw/2, -sh/2);
             var imgEl = getEl('CropImg');
             imgEl.onload = function(){ brCropNatW=imgEl.naturalWidth; brCropNatH=imgEl.naturalHeight; if(cb)cb(); };
-            imgEl.src = c.toDataURL('image/png');
+            imgEl.src = c.toDataURL('image/jpeg', 0.95);
         };
         srcImg.src = brCropOrigUrl;
     }
@@ -1564,7 +1565,7 @@ function createResizerTool(prefix, targetW, targetH) {
                         .then(blob => {
                             var baseNameMap = { logo: 'Resized Logo', cov: 'Resized Cover' };
                             var fname;
-                            var ext = (prefix === 'logo') ? '.png' : '.jpg';
+                            var ext = '.jpg';
                             if (baseNameMap[prefix]) {
                                 var base = baseNameMap[prefix];
                                 fname = base + ext;
