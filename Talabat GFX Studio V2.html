@@ -9,6 +9,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pica/10.0.0/pica.min.js"></script>
 <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+
+<!-- Free, client-side AI Background Removal Engine -->
+<script type="module">
+  import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
+  window.imglyRemoveBackground = removeBackground;
+</script>
+
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -93,7 +100,6 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
 @keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
 @keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}
 
-
 /* ── DYNAMIC CYBERPUNK PROGRESS BAR ── */
 .prog-block {
   margin-bottom: 1.5rem;
@@ -164,7 +170,6 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
 }
 
 @keyframes moveGradient { 0%,100% { background-position: 0% 0; } 50% { background-position: 100% 0; } }
-@keyframes moveStripes { 0% { background-position: 0 0; } 100% { background-position: 28px 0; } }
 
 .prog-pct-badge {
   font-size: 14px; font-weight: 800; color: var(--org);
@@ -176,7 +181,6 @@ body.light-mode .upload-zone{background:linear-gradient(135deg,#f0f0eb,#e8e8e0)}
 }
 .prog-file-name { font-size: 12px; font-weight: 600; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
 .prog-counters { display: flex; gap: 12px; font-size: 11px; font-weight: 700; color: var(--t2); background: var(--inp); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--b); }
-
 
 /* ── FILE TYPE BADGES ── */
 .ft-badge{position:absolute;top:4px;right:4px;font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;line-height:1.4}
@@ -303,7 +307,12 @@ document.addEventListener('DOMContentLoaded', function(){
     function containResize(srcCanvas, W, H, bg) {
         var canvas = createCanvas(W, H); var ctx = canvas.getContext('2d');
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        ctx.fillStyle = (bg === 'orange') ? '#FF6B35' : (bg === 'black' ? '#000000' : '#FFFFFF'); ctx.fillRect(0, 0, W, H);
+        
+        if (bg !== 'transparent') {
+            ctx.fillStyle = (bg === 'black' ? '#000000' : '#FFFFFF'); 
+            ctx.fillRect(0, 0, W, H);
+        }
+
         var pad = (CURRENT_QUALITY >= 1) ? 0.97 : 0.92;
         var scale = Math.min(W / srcCanvas.width, H / srcCanvas.height) * pad;
         var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
@@ -311,21 +320,28 @@ document.addEventListener('DOMContentLoaded', function(){
         var pre = hqDownscale(srcCanvas, dw, dh);
         ctx.drawImage(pre, dx, dy, dw, dh);
         if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = 'image/jpeg';
+        
+        let outType = (bg === 'transparent') ? 'image/png' : 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
     function coverResize(srcCanvas, W, H, bg) {
         var canvas = createCanvas(W, H); var ctx = canvas.getContext('2d');
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        ctx.fillStyle = (bg === 'orange') ? '#FF6B35' : (bg === 'black' ? '#000000' : '#FFFFFF'); ctx.fillRect(0, 0, W, H);
+        
+        if (bg !== 'transparent') {
+            ctx.fillStyle = (bg === 'black' ? '#000000' : '#FFFFFF'); 
+            ctx.fillRect(0, 0, W, H);
+        }
+
         var scale = Math.max(W / srcCanvas.width, H / srcCanvas.height);
         var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
         var dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
         var pre = hqDownscale(srcCanvas, dw, dh);
         ctx.drawImage(pre, dx, dy, dw, dh);
         if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = 'image/jpeg';
+        
+        let outType = (bg === 'transparent') ? 'image/png' : 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -338,7 +354,10 @@ document.addEventListener('DOMContentLoaded', function(){
         var edgeType = isExtremeCrop ? isEdgeUniform(srcCanvas) : null;
 
         if (edgeType === 'transparent') {
-            ctx.fillStyle = (bg === 'orange') ? '#FF6B35' : (bg === 'black' ? '#000000' : '#FFFFFF'); ctx.fillRect(0, 0, W, H);
+            if (bg !== 'transparent') {
+                ctx.fillStyle = (bg === 'black' ? '#000000' : '#FFFFFF'); 
+                ctx.fillRect(0, 0, W, H);
+            }
             scale = containScale * ((CURRENT_QUALITY >= 1) ? 0.97 : 0.92);
             var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
             var dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
@@ -364,13 +383,17 @@ document.addEventListener('DOMContentLoaded', function(){
                 ctx.drawImage(canvas, dx + dw - inset - 1, dy + dh - inset - 1, 1, 1, dx + dw, dy + dh, dx, dy);
             }
         } else {
-            ctx.fillStyle = (bg === 'orange') ? '#FF6B35' : (bg === 'black' ? '#000000' : '#FFFFFF'); ctx.fillRect(0, 0, W, H);
+            if (bg !== 'transparent') {
+                ctx.fillStyle = (bg === 'black' ? '#000000' : '#FFFFFF'); 
+                ctx.fillRect(0, 0, W, H);
+            }
             var dw = Math.round(srcCanvas.width * containScale), dh = Math.round(srcCanvas.height * containScale);
             var dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
             ctx.drawImage(hqDownscale(srcCanvas, dw, dh), dx, dy, dw, dh);
         }
         if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = 'image/jpeg';
+        
+        let outType = (bg === 'transparent') ? 'image/png' : 'image/jpeg';
         return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
     }
 
@@ -476,117 +499,18 @@ document.addEventListener('DOMContentLoaded', function(){
         return 'rgb(' + Math.round(Math.sqrt(rS / final.length)) + ',' + Math.round(Math.sqrt(gS / final.length)) + ',' + Math.round(Math.sqrt(bS / final.length)) + ')';
     }
 
-    function fitOnBg(srcCanvas, W, H, bgColor) {
-        var canvas = createCanvas(W, H); var ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        ctx.fillStyle = bgColor; ctx.fillRect(0, 0, W, H);
-        var scale = Math.min(W / srcCanvas.width, H / srcCanvas.height) * 0.92;
-        var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
-        var dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
-        var pre = hqDownscale(srcCanvas, dw, dh);
-        ctx.drawImage(pre, dx, dy, dw, dh);
-        let outType = 'image/jpeg';
-        return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
-    }
-
-    function seamlessFit(srcCanvas, W, H, bgColor) {
-        var canvas = createCanvas(W, H); var ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        ctx.fillStyle = bgColor; ctx.fillRect(0, 0, W, H);
-        var scale = Math.min(W / srcCanvas.width, H / srcCanvas.height) * 0.92;
-        var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
-        var dx = Math.round((W - dw) / 2), dy = Math.round((H - dh) / 2);
-        var pre = hqDownscale(srcCanvas, dw, dh);
-        ctx.drawImage(pre, dx, dy, dw, dh);
-        let outType = 'image/jpeg';
-        return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
-    }
-
-    function smartSceneCrop(srcCanvas, W, H) {
-        var sw = srcCanvas.width, sh = srcCanvas.height;
-        var scale = Math.max(W / sw, H / sh); 
-        var dw = Math.round(sw * scale), dh = Math.round(sh * scale);
-        var dx = Math.round((W - dw) / 2);
-        var dy = Math.round((H - dh) / 2);
-        var canvas = createCanvas(W, H); var ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        var pre = hqDownscale(srcCanvas, dw, dh);
-        ctx.drawImage(pre, dx, dy, dw, dh);
-        let outType = 'image/jpeg';
-        return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
-    }
-
-    function generativeFill(srcCanvas, W, H) {
-        var scale = Math.min(W / srcCanvas.width, H / srcCanvas.height);
-        var dw = srcCanvas.width * scale;
-        var dh = srcCanvas.height * scale;
-        var padTop = Math.floor((H - dh) / 2);
-        var padBottom = H - dh - padTop;
-        var padLeft = Math.floor((W - dw) / 2);
-
-        var tmp = createCanvas(Math.round(dw), Math.round(dh)); var tctx = tmp.getContext('2d');
-        tctx.imageSmoothingEnabled = true; tctx.imageSmoothingQuality = 'high';
-        tctx.drawImage(hqDownscale(srcCanvas, Math.round(dw), Math.round(dh)), 0, 0, Math.round(dw), Math.round(dh));
-
-        var td = tctx.getImageData(0, 0, Math.round(dw), 1).data;
-        var bd = tctx.getImageData(0, Math.round(dh) - 1, Math.round(dw), 1).data;
-        var rT = 0, gT = 0, bT = 0, rB = 0, gB = 0, bB = 0;
-        for (var i = 0; i < Math.round(dw); i++) {
-            rT += td[i * 4] * td[i * 4]; gT += td[i * 4 + 1] * td[i * 4 + 1]; bT += td[i * 4 + 2] * td[i * 4 + 2];
-            rB += bd[i * 4] * bd[i * 4]; gB += bd[i * 4 + 1] * bd[i * 4 + 1]; bB += bd[i * 4 + 2] * bd[i * 4 + 2];
-        }
-        rT = Math.round(Math.sqrt(rT / Math.round(dw))); gT = Math.round(Math.sqrt(gT / Math.round(dw))); bT = Math.round(Math.sqrt(bT / Math.round(dw)));
-        rB = Math.round(Math.sqrt(rB / Math.round(dw))); gB = Math.round(Math.sqrt(gB / Math.round(dw))); bB = Math.round(Math.sqrt(bB / Math.round(dw)));
-
-        var canvas = createCanvas(W, H); var ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        var lightR = 255, lightG = 235, lightB = 195;
-
-        if (padTop > 0) {
-            var gt = ctx.createLinearGradient(0, 0, 0, padTop);
-            gt.addColorStop(0, 'rgb(' + lightR + ',' + lightG + ',' + lightB + ')'); gt.addColorStop(1, 'rgb(' + rT + ',' + gT + ',' + bT + ')');
-            ctx.fillStyle = gt; ctx.fillRect(0, 0, W, padTop);
-        }
-        if (padBottom > 0) {
-            var gb = ctx.createLinearGradient(0, padTop + Math.round(dh), 0, H);
-            gb.addColorStop(0, 'rgb(' + rB + ',' + gB + ',' + bB + ')'); gb.addColorStop(1, 'rgb(' + lightR + ',' + lightG + ',' + lightB + ')');
-            ctx.fillStyle = gb; ctx.fillRect(0, padTop + Math.round(dh), W, padBottom);
-        }
-        if (padLeft > 0) {
-            var ld = tctx.getImageData(0, 0, 1, Math.round(dh)).data;
-            var rL = 0, gL = 0, bL = 0;
-            for (var j = 0; j < Math.round(dh); j++) { rL += ld[j * 4] * ld[j * 4]; gL += ld[j * 4 + 1] * ld[j * 4 + 1]; bL += ld[j * 4 + 2] * ld[j * 4 + 2]; }
-            ctx.fillStyle = 'rgb(' + Math.round(Math.sqrt(rL / Math.round(dh))) + ',' + Math.round(Math.sqrt(gL / Math.round(dh))) + ',' + Math.round(Math.sqrt(bL / Math.round(dh))) + ')';
-            ctx.fillRect(0, 0, padLeft, H); ctx.fillRect(W - padLeft, 0, padLeft, H);
-        }
-        ctx.drawImage(tmp, padLeft, padTop, Math.round(dw), Math.round(dh));
-        if (CURRENT_QUALITY >= 1) sharpenCanvas(canvas, 0.4);
-        let outType = 'image/jpeg';
-        return canvas.convertToBlob({ type: outType, quality: CURRENT_QUALITY });
-    }
-
-    function smartAutoResize(srcCanvas, W, H) {
-        var result = stripWhiteBorder(srcCanvas);
-        var stripped = result.canvas;
-        var bgType = detectBgType(stripped);
-
-        if (bgType === 'white') {
-            return fitOnBg(stripped, W, H, 'rgb(255,255,255)');
-        } else if (bgType === 'solid') {
-            var ctx2 = stripped.getContext('2d'), d2 = ctx2.getImageData(0, 0, stripped.width, stripped.height).data;
-            var eR = d2[0], eG = d2[1], eB = d2[2];
-            var maxC = Math.max(eR, eG, eB), minC = Math.min(eR, eG, eB), saturation = maxC > 0 ? (maxC - minC) / maxC : 0;
-            var bgColor = saturation > 0.25 ? getEdgeBorderColor(stripped) : getAvgBorderColor(stripped);
-            return seamlessFit(stripped, W, H, bgColor);
-        } else {
-            return smartSceneCrop(stripped, W, H);
-        }
-    }
-
     self.onmessage = async function (e) {
         const { id, bitmap, opts } = e.data;
         try {
             CURRENT_QUALITY = opts.quality || 0.95;
+
+            // CRITICAL FIX: If AI removed the background, the pixels are transparent.
+            // The 'smart' and 'auto' algorithms will read these as solid black pixels and create garbage artifacts.
+            // We must force 'fit' mode to cleanly center the cutout on the user's chosen background.
+            if (opts.doBgRm && (opts.fitMode === 'smart' || opts.fitMode === 'auto' || opts.fitMode === 'genfill')) {
+                opts.fitMode = 'fit';
+            }
+
             let canvas = createCanvas(bitmap.width, bitmap.height);
             let ctx = canvas.getContext('2d');
             ctx.drawImage(bitmap, 0, 0);
@@ -610,7 +534,6 @@ document.addEventListener('DOMContentLoaded', function(){
             if (opts.fitMode === 'smart') { finalBlob = await smartAutoResize(canvas, opts.W, opts.H); }
             else if (opts.fitMode === 'auto') { finalBlob = await autoExtendResize(canvas, opts.W, opts.H, opts.bg); }
             else if (opts.fitMode === 'fill') { finalBlob = await coverResize(canvas, opts.W, opts.H, opts.bg); }
-            else if (opts.fitMode === 'genfill') { finalBlob = await generativeFill(canvas, opts.W, opts.H); }
             else { finalBlob = await containResize(canvas, opts.W, opts.H, opts.bg); }
 
             self.postMessage({ id, success: true, blob: finalBlob });
@@ -652,342 +575,384 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <div class="wrap">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
-  <div>
-  <div class="section-label">
-    <div class="num">1</div>
-    <div><h2><span class="sec-icon">✨</span> Logos</h2><p>Strictly resizes and processes outputs to 200 × 200.</p></div>
-  </div>
-  <div class="card">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-      <a href="https://cleanup.pictures" target="_blank" rel="noopener" class="btn" aria-label="Open Cleanup.Pictures" title="Remove unwanted objects/watermarks with Cleanup.Pictures" style="padding:6px 12px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">🧽 Cleanup.Pictures</a>
-    </div>
-    <div id="logo_Zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload Logos Drop Zone">
-      <div style="font-size:36px;margin-bottom:10px">🪄</div>
-      <p style="font-size:14px;font-weight:700;color:var(--org)">Drop Logos Here</p>
-      <small style="font-size:11px;color:var(--t2)">PNG · JPG/JPEG · WebP · AVIF · PDF</small>
-    </div>
-    <input type="file" id="logo_Input" accept="image/*,.avif,.jpeg,.pdf,application/pdf" multiple style="display:none">
-    
-    <div id="logo_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="logo_Count">0</span> loaded</span>
-      <span style="font-size:12px;color:var(--org);font-weight:700;" id="logo_SelCount">(0 selected)</span>
-      <span style="font-size:12px;color:var(--t2)">Size: <strong id="logo_MB" style="color:var(--t1)">0 MB</strong></span>
-      <div style="margin-left:auto; display:flex; gap:8px;">
-        <button id="logo_SelectAllBtn" class="btn" aria-label="Select All Logos" style="padding:6px 12px;font-size:11px;">☑ Select All</button>
-        <button id="logo_SelectNoneBtn" class="btn" aria-label="Select None Logos" style="padding:6px 12px;font-size:11px;">☐ Select None</button>
-        <button id="logo_ClearBtn" class="btn btn-stop" aria-label="Clear All Logos" style="padding:6px 12px;font-size:11px;">✕ Clear</button>
+    <div>
+      <div class="section-label">
+        <div class="num">1</div>
+        <div><h2><span class="sec-icon">✨</span> Logos</h2><p>Strictly resizes and processes outputs to 200 × 200.</p></div>
       </div>
-    </div>
-
-    <div class="settings-grid">
-      <div><label class="field-label" for="logo_Fit">Fit mode</label>
-        <select id="logo_Fit" class="fi">
-          <option value="fit">Fit (Keep full image, Solid border)</option>
-          <option value="auto">Auto-Extend (Full Image, Seamless Fill)</option>
-          <option value="fill">Fill (Crop to frame, No borders)</option>
-          <option value="genfill">✨ Generative Fill (Gradient Edge Match)</option>
-        </select>
-      </div>
-      <div><label class="field-label" for="logo_Bg">Background Fill (For Fit)</label>
-        <select id="logo_Bg" class="fi">
-          <option value="white">Pure White</option>
-          <option value="black">Pure Black</option>
-          <option value="orange">Talabat Orange</option>
-        </select>
-      </div>
-    </div>
-
-    <div id="logo_ProgWrap" style="display:none">
-      <div class="prog-block">
-        <div class="prog-top">
-          <div class="prog-bar-track">
-            <div id="logo_ProgBar" class="prog-bar-fill"></div>
-          </div>
-          <span id="logo_ProgPct" class="prog-pct-badge">0%</span>
+      <div class="card">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <a href="https://cleanup.pictures" target="_blank" rel="noopener" class="btn" aria-label="Open Cleanup.Pictures" title="Remove unwanted objects/watermarks with Cleanup.Pictures" style="padding:6px 12px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">🧽 Cleanup.Pictures</a>
         </div>
-        <div class="prog-bottom">
-          <span id="logo_ProgLbl" class="prog-file-name">Processing...</span>
-          <span id="logo_ETA" class="prog-eta"></span>
-          <div class="prog-counters">
-            <span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span>
-            <span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span>
-            <span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span>
+        <div id="logo_Zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload Logos Drop Zone">
+          <div style="font-size:36px;margin-bottom:10px">🪄</div>
+          <p style="font-size:14px;font-weight:700;color:var(--org)">Drop Logos Here</p>
+          <small style="font-size:11px;color:var(--t2)">PNG · JPG/JPEG · WebP · AVIF · PDF</small>
+        </div>
+        <input type="file" id="logo_Input" accept="image/*,.avif,.jpeg,.pdf,application/pdf" multiple style="display:none">
+        
+        <div id="logo_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="logo_Count">0</span> loaded</span>
+          <span style="font-size:12px;color:var(--org);font-weight:700;" id="logo_SelCount">(0 selected)</span>
+          <span style="font-size:12px;color:var(--t2)">Size: <strong id="logo_MB" style="color:var(--t1)">0 MB</strong></span>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <button id="logo_SelectAllBtn" class="btn" aria-label="Select All Logos" style="padding:6px 12px;font-size:11px;">☑ Select All</button>
+            <button id="logo_SelectNoneBtn" class="btn" aria-label="Select None Logos" style="padding:6px 12px;font-size:11px;">☐ Select None</button>
+            <button id="logo_ClearBtn" class="btn btn-stop" aria-label="Clear All Logos" style="padding:6px 12px;font-size:11px;">✕ Clear</button>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div style="display:flex;gap:10px;margin-bottom:1.25rem">
-      <button id="logo_StartBtn" disabled aria-label="Process and Download Logos" style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35;transition:all 0.2s;">⚡ Process &amp; Download ZIP</button>
-      <button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer" aria-label="Stop Processing">⏹ Stop</button>
-    </div>
-
-    <div id="logo_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto; padding-right:4px;"></div>
-    
-    <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem; backdrop-filter:blur(8px);">
-      <div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)">
-          <div style="font-size:14px;font-weight:700;color:var(--t1)" id="logo_CropModalTitle">✂️ Smart Crop</div>
-          <button id="logo_CropCloseX" aria-label="Close Crop Modal" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px;transition:0.2s;" onmouseover="this.style.color='#fff'">✕</button>
+        <div class="settings-grid">
+          <div><label class="field-label" for="logo_Fit">Fit mode</label>
+            <select id="logo_Fit" class="fi" onchange="toggleImgSettingsHint('logo')">
+              <option value="fit">Fit (Keep full image, Solid border)</option>
+              <option value="auto">Auto-Extend (Full Image, Seamless Fill)</option>
+              <option value="fill">Fill (Crop to frame, No borders)</option>
+              <option value="genfill">✨ Generative Fill (Gradient Match)</option>
+            </select>
+          </div>
+          <div id="logo_Bg_Container"><label class="field-label" for="logo_Bg">Background Fill</label>
+            <select id="logo_Bg" class="fi">
+              <option value="white">Pure White</option>
+              <option value="black">Pure Black</option>
+              <option value="transparent">Transparent (PNG Output)</option>
+            </select>
+          </div>
+          <div><label class="field-label" for="logo_BgRm">AI Magic</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;color:var(--t1);transition:all .2s;">
+              <input type="checkbox" id="logo_BgRm" onchange="toggleImgSettingsHint('logo')" style="accent-color:var(--org);width:16px;height:16px;">
+              ✨ Remove BG First
+            </label>
+          </div>
         </div>
-        <div style="padding:0.75rem">
-          <div id="logo_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none; border:1px solid var(--b);">
-            <img id="logo_CropImg" draggable="false" alt="Image to crop" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none">
-            <div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div>
-          </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Zoom</span>
-            <button id="logo_ZoomOut" class="btn crop-icon-btn" aria-label="Zoom Out" title="Zoom Out">−</button>
-            <input type="range" id="logo_CropZoomSlider" aria-label="Zoom Crop" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)">
-            <button id="logo_ZoomIn" class="btn crop-icon-btn" aria-label="Zoom In" title="Zoom In">+</button>
-            <span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right;">100%</span>
-          </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Frame</span>
-            <div class="crop-seg">
-              <button id="logo_FitBtn" class="btn" title="Fit whole image inside frame, no cropping" aria-label="Fit Image">⛶ Fit</button>
-              <button id="logo_FillBtn" class="btn" title="Fill entire frame (default)" aria-label="Fill Frame">⬛ Fill</button>
-              <button id="logo_CenterBtn" class="btn" title="Snap image dead-center" aria-label="Center Image">🎯 Center</button>
+
+        <div id="logo_ProgWrap" style="display:none">
+          <div class="prog-block">
+            <div class="prog-top">
+              <div class="prog-bar-track">
+                <div id="logo_ProgBar" class="prog-bar-fill"></div>
+              </div>
+              <span id="logo_ProgPct" class="prog-pct-badge">0%</span>
+            </div>
+            <div class="prog-bottom">
+              <span id="logo_ProgLbl" class="prog-file-name">Processing...</span>
+              <span id="logo_ETA" class="prog-eta"></span>
+              <div class="prog-counters">
+                <span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span>
+                <span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span>
+                <span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span>
+              </div>
             </div>
           </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Rotate</span>
-            <button id="logo_RotL" class="btn crop-icon-btn" title="Rotate Left 90°" aria-label="Rotate Left"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 2.6 6.4"/><path d="M3 4v6h6"/></svg></button>
-            <button id="logo_RotR" class="btn crop-icon-btn" title="Rotate Right 90°" aria-label="Rotate Right"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10a9 9 0 1 0-2.6 6.4"/><path d="M21 4v6h-6"/></svg></button>
-            <span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center;">0°</span>
-            <button id="logo_RotReset" class="btn" title="Reset rotation to 0°" aria-label="Reset Rotation" style="font-size:11px;padding:6px 10px;margin-left:auto;">Reset</button>
-            <button id="logo_UndoBtn" class="btn crop-icon-btn" title="Undo last change (Ctrl+Z)" aria-label="Undo Last Change"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
-          </div>
         </div>
-        <div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem">
-          <button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button>
-          <button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button>
-          <button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button>
+
+        <div style="display:flex;gap:10px;margin-bottom:1.25rem">
+          <button id="logo_StartBtn" disabled aria-label="Process and Download Logos" style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35;transition:all 0.2s;">⚡ Process &amp; Download ZIP</button>
+          <button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer" aria-label="Stop Processing">⏹ Stop</button>
         </div>
-      </div>
-    </div>
-  </div>
-  </div>
 
-  <div>
-  <div class="section-label">
-    <div class="num">2</div>
-    <div><h2><span class="sec-icon">✨</span> Covers</h2><p>Strictly resizes and processes outputs to 750 × 300.</p></div>
-  </div>
-  <div class="card">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-      <a href="https://cleanup.pictures" target="_blank" rel="noopener" class="btn" aria-label="Open Cleanup.Pictures" title="Remove unwanted objects/watermarks with Cleanup.Pictures" style="padding:6px 12px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">🧽 Cleanup.Pictures</a>
-    </div>
-    <div id="cov_Zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload Covers Drop Zone">
-      <div style="font-size:36px;margin-bottom:10px">🪄</div>
-      <p style="font-size:14px;font-weight:700;color:var(--org)">Drop Covers Here</p>
-      <small style="font-size:11px;color:var(--t2)">PNG · JPG/JPEG · WebP · AVIF · PDF</small>
-    </div>
-    <input type="file" id="cov_Input" accept="image/*,.avif,.jpeg,.pdf,application/pdf" multiple style="display:none">
-    
-    <div id="cov_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="cov_Count">0</span> loaded</span>
-      <span style="font-size:12px;color:var(--org);font-weight:700;" id="cov_SelCount">(0 selected)</span>
-      <span style="font-size:12px;color:var(--t2)">Size: <strong id="cov_MB" style="color:var(--t1)">0 MB</strong></span>
-      <div style="margin-left:auto; display:flex; gap:8px;">
-        <button id="cov_SelectAllBtn" class="btn" aria-label="Select All Covers" style="padding:6px 12px;font-size:11px;">☑ Select All</button>
-        <button id="cov_SelectNoneBtn" class="btn" aria-label="Select None Covers" style="padding:6px 12px;font-size:11px;">☐ Select None</button>
-        <button id="cov_ClearBtn" class="btn btn-stop" aria-label="Clear All Covers" style="padding:6px 12px;font-size:11px;">✕ Clear</button>
-      </div>
-    </div>
-
-    <div class="settings-grid">
-      <div><label class="field-label" for="cov_Fit">Fit mode</label>
-        <select id="cov_Fit" class="fi">
-          <option value="auto">Auto-Extend (Full Image, Seamless Fill)</option>
-          <option value="fill">Fill (Crop to frame, No borders)</option>
-          <option value="fit">Fit (Keep full image, Solid border)</option>
-        </select>
-      </div>
-      <div><label class="field-label" for="cov_Bg">Background Fill (For Fit)</label>
-        <select id="cov_Bg" class="fi">
-          <option value="white">Pure White</option>
-          <option value="black">Pure Black</option>
-          <option value="orange">Talabat Orange</option>
-        </select>
-      </div>
-    </div>
-
-    <div id="cov_ProgWrap" style="display:none">
-      <div class="prog-block">
-        <div class="prog-top">
-          <div class="prog-bar-track">
-            <div id="cov_ProgBar" class="prog-bar-fill"></div>
-          </div>
-          <span id="cov_ProgPct" class="prog-pct-badge">0%</span>
-        </div>
-        <div class="prog-bottom">
-          <span id="cov_ProgLbl" class="prog-file-name">Processing...</span>
-          <span id="cov_ETA" class="prog-eta"></span>
-          <div class="prog-counters">
-            <span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span>
-            <span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span>
-            <span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:10px;margin-bottom:1.25rem">
-      <button id="cov_StartBtn" disabled aria-label="Process and Download Covers" style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35;transition:all 0.2s;">⚡ Process &amp; Download ZIP</button>
-      <button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer" aria-label="Stop Processing">⏹ Stop</button>
-    </div>
-
-    <div id="cov_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto; padding-right:4px;"></div>
-    
-    <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem; backdrop-filter:blur(8px);">
-      <div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)">
-          <div style="font-size:14px;font-weight:700;color:var(--t1)" id="cov_CropModalTitle">✂️ Smart Crop</div>
-          <button id="cov_CropCloseX" aria-label="Close Crop Modal" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px;transition:0.2s;" onmouseover="this.style.color='#fff'">✕</button>
-        </div>
-        <div style="padding:0.75rem">
-          <div id="cov_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none; border:1px solid var(--b);">
-            <img id="cov_CropImg" draggable="false" alt="Image to crop" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none">
-            <div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div>
-          </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Zoom</span>
-            <button id="cov_ZoomOut" class="btn crop-icon-btn" aria-label="Zoom Out" title="Zoom Out">−</button>
-            <input type="range" id="cov_CropZoomSlider" aria-label="Zoom Crop" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)">
-            <button id="cov_ZoomIn" class="btn crop-icon-btn" aria-label="Zoom In" title="Zoom In">+</button>
-            <span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right;">100%</span>
-          </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Frame</span>
-            <div class="crop-seg">
-              <button id="cov_FitBtn" class="btn" title="Fit whole image inside frame, no cropping" aria-label="Fit Image">⛶ Fit</button>
-              <button id="cov_FillBtn" class="btn" title="Fill entire frame (default)" aria-label="Fill Frame">⬛ Fill</button>
-              <button id="cov_CenterBtn" class="btn" title="Snap image dead-center" aria-label="Center Image">🎯 Center</button>
+        <div id="logo_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto; padding-right:4px;"></div>
+        
+        <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem; backdrop-filter:blur(8px);">
+          <div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)">
+              <div style="font-size:14px;font-weight:700;color:var(--t1)" id="logo_CropModalTitle">✂️ Smart Crop</div>
+              <button id="logo_CropCloseX" aria-label="Close Crop Modal" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px;transition:0.2s;" onmouseover="this.style.color='#fff'">✕</button>
+            </div>
+            <div style="padding:0.75rem">
+              <div id="logo_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none; border:1px solid var(--b);">
+                <img id="logo_CropImg" draggable="false" alt="Image to crop" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none">
+                <div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Zoom</span>
+                <button id="logo_ZoomOut" class="btn crop-icon-btn" aria-label="Zoom Out" title="Zoom Out">−</button>
+                <input type="range" id="logo_CropZoomSlider" aria-label="Zoom Crop" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)">
+                <button id="logo_ZoomIn" class="btn crop-icon-btn" aria-label="Zoom In" title="Zoom In">+</button>
+                <span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right;">100%</span>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Frame</span>
+                <div class="crop-seg">
+                  <button id="logo_FitBtn" class="btn" title="Fit whole image inside frame, no cropping" aria-label="Fit Image">⛶ Fit</button>
+                  <button id="logo_FillBtn" class="btn" title="Fill entire frame (default)" aria-label="Fill Frame">⬛ Fill</button>
+                  <button id="logo_CenterBtn" class="btn" title="Snap image dead-center" aria-label="Center Image">🎯 Center</button>
+                </div>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Rotate</span>
+                <button id="logo_RotL" class="btn crop-icon-btn" title="Rotate Left 90°" aria-label="Rotate Left"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 2.6 6.4"/><path d="M3 4v6h6"/></svg></button>
+                <button id="logo_RotR" class="btn crop-icon-btn" title="Rotate Right 90°" aria-label="Rotate Right"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10a9 9 0 1 0-2.6 6.4"/><path d="M21 4v6h-6"/></svg></button>
+                <span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center;">0°</span>
+                <button id="logo_RotReset" class="btn" title="Reset rotation to 0°" aria-label="Reset Rotation" style="font-size:11px;padding:6px 10px;margin-left:auto;">Reset</button>
+                <button id="logo_UndoBtn" class="btn crop-icon-btn" title="Undo last change (Ctrl+Z)" aria-label="Undo Last Change"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem">
+              <button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button>
+              <button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button>
+              <button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button>
             </div>
           </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Rotate</span>
-            <button id="cov_RotL" class="btn crop-icon-btn" title="Rotate Left 90°" aria-label="Rotate Left"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 2.6 6.4"/><path d="M3 4v6h6"/></svg></button>
-            <button id="cov_RotR" class="btn crop-icon-btn" title="Rotate Right 90°" aria-label="Rotate Right"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10a9 9 0 1 0-2.6 6.4"/><path d="M21 4v6h-6"/></svg></button>
-            <span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center;">0°</span>
-            <button id="cov_RotReset" class="btn" title="Reset rotation to 0°" aria-label="Reset Rotation" style="font-size:11px;padding:6px 10px;margin-left:auto;">Reset</button>
-            <button id="cov_UndoBtn" class="btn crop-icon-btn" title="Undo last change (Ctrl+Z)" aria-label="Undo Last Change"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
-          </div>
-        </div>
-        <div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem">
-          <button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button>
-          <button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button>
-          <button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  </div>
-  </div>
-
-  <div class="section-label">
-    <div class="num">3</div>
-    <div><h2><span class="sec-icon">✨</span> Menu Images</h2><p>Strictly resizes and processes outputs to 810 × 540.</p></div>
-  </div>
-  <div class="card">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-      <a href="https://cleanup.pictures" target="_blank" rel="noopener" class="btn" aria-label="Open Cleanup.Pictures" title="Remove unwanted objects/watermarks with Cleanup.Pictures" style="padding:6px 12px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">🧽 Cleanup.Pictures</a>
-    </div>
-    <div id="img_Zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload Menu Images Drop Zone">
-      <div style="font-size:36px;margin-bottom:10px">🪄</div>
-      <p style="font-size:14px;font-weight:700;color:var(--org)">Drop Menu Images Here</p>
-      <small style="font-size:11px;color:var(--t2)">PNG · JPG/JPEG · WebP · AVIF · PDF</small>
-    </div>
-    <input type="file" id="img_Input" accept="image/*,.avif,.jpeg,.pdf,application/pdf" multiple style="display:none">
-    
-    <div id="img_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
-      <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="img_Count">0</span> loaded</span>
-      <span style="font-size:12px;color:var(--org);font-weight:700;" id="img_SelCount">(0 selected)</span>
-      <span style="font-size:12px;color:var(--t2)">Size: <strong id="img_MB" style="color:var(--t1)">0 MB</strong></span>
-      <div style="margin-left:auto; display:flex; gap:8px;">
-        <button id="img_SelectAllBtn" class="btn" aria-label="Select All Menu Images" style="padding:6px 12px;font-size:11px;">☑ Select All</button>
-        <button id="img_SelectNoneBtn" class="btn" aria-label="Select None Menu Images" style="padding:6px 12px;font-size:11px;">☐ Select None</button>
-        <button id="img_ClearBtn" class="btn btn-stop" aria-label="Clear All Menu Images" style="padding:6px 12px;font-size:11px;">✕ Clear</button>
-      </div>
-    </div>
-
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--inp);border:1px solid var(--b);border-radius:8px;margin-bottom:1rem">
-      <span style="font-size:22px">🤖</span>
-      <div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1)">Smart Auto Mode <span style="font-size:10px;font-weight:600;color:var(--org);background:rgba(255,107,53,.12);padding:2px 7px;border-radius:20px;margin-left:4px">PERFECT CENTER ACTIVE</span></div>
-        <div style="font-size:11px;color:var(--t2);margin-top:2px">Detects background type automatically — <b style="color:var(--t1)">White/Solid bg</b> → Dead-Center Fit + 8% Margin Padding · <b style="color:var(--t1)">Complex Scene</b> → Flawless Geometric Center Crop</div>
-      </div>
-    </div>
-    <select id="img_Fit" aria-hidden="true" style="display:none"><option value="smart">smart</option></select>
-    <select id="img_Bg" aria-hidden="true" style="display:none"><option value="white">white</option></select>
-
-    <div id="img_ProgWrap" style="display:none">
-      <div class="prog-block">
-        <div class="prog-top">
-          <div class="prog-bar-track">
-            <div id="img_ProgBar" class="prog-bar-fill"></div>
-          </div>
-          <span id="img_ProgPct" class="prog-pct-badge">0%</span>
-        </div>
-        <div class="prog-bottom">
-          <span id="img_ProgLbl" class="prog-file-name">Processing...</span>
-          <span id="img_ETA" class="prog-eta"></span>
-          <div class="prog-counters">
-            <span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span>
-            <span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span>
-            <span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span>
-          </div>
         </div>
       </div>
     </div>
 
-    <div style="display:flex;gap:10px;margin-bottom:1.25rem">
-      <button id="img_StartBtn" disabled aria-label="Process and Download Menu Images" style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35;transition:all 0.2s;">⚡ Process &amp; Download ZIP</button>
-      <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer" aria-label="Stop Processing">⏹ Stop</button>
-    </div>
-
-    <div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto; padding-right:4px;"></div>
-    
-    <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem; backdrop-filter:blur(8px);">
-      <div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)">
-          <div style="font-size:14px;font-weight:700;color:var(--t1)" id="img_CropModalTitle">✂️ Smart Crop</div>
-          <button id="img_CropCloseX" aria-label="Close Crop Modal" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px;transition:0.2s;" onmouseover="this.style.color='#fff'">✕</button>
+    <div>
+      <div class="section-label">
+        <div class="num">2</div>
+        <div><h2><span class="sec-icon">✨</span> Covers</h2><p>Strictly resizes and processes outputs to 750 × 300.</p></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <a href="https://cleanup.pictures" target="_blank" rel="noopener" class="btn" aria-label="Open Cleanup.Pictures" title="Remove unwanted objects/watermarks with Cleanup.Pictures" style="padding:6px 12px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">🧽 Cleanup.Pictures</a>
         </div>
-        <div style="padding:0.75rem">
-          <div id="img_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none; border:1px solid var(--b);">
-            <img id="img_CropImg" draggable="false" alt="Image to crop" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none">
-            <div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div>
+        <div id="cov_Zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload Covers Drop Zone">
+          <div style="font-size:36px;margin-bottom:10px">🪄</div>
+          <p style="font-size:14px;font-weight:700;color:var(--org)">Drop Covers Here</p>
+          <small style="font-size:11px;color:var(--t2)">PNG · JPG/JPEG · WebP · AVIF · PDF</small>
+        </div>
+        <input type="file" id="cov_Input" accept="image/*,.avif,.jpeg,.pdf,application/pdf" multiple style="display:none">
+        
+        <div id="cov_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="cov_Count">0</span> loaded</span>
+          <span style="font-size:12px;color:var(--org);font-weight:700;" id="cov_SelCount">(0 selected)</span>
+          <span style="font-size:12px;color:var(--t2)">Size: <strong id="cov_MB" style="color:var(--t1)">0 MB</strong></span>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <button id="cov_SelectAllBtn" class="btn" aria-label="Select All Covers" style="padding:6px 12px;font-size:11px;">☑ Select All</button>
+            <button id="cov_SelectNoneBtn" class="btn" aria-label="Select None Covers" style="padding:6px 12px;font-size:11px;">☐ Select None</button>
+            <button id="cov_ClearBtn" class="btn btn-stop" aria-label="Clear All Covers" style="padding:6px 12px;font-size:11px;">✕ Clear</button>
           </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Zoom</span>
-            <button id="img_ZoomOut" class="btn crop-icon-btn" aria-label="Zoom Out" title="Zoom Out">−</button>
-            <input type="range" id="img_CropZoomSlider" aria-label="Zoom Crop" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)">
-            <button id="img_ZoomIn" class="btn crop-icon-btn" aria-label="Zoom In" title="Zoom In">+</button>
-            <span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right;">100%</span>
+        </div>
+
+        <div class="settings-grid">
+          <div><label class="field-label" for="cov_Fit">Fit mode</label>
+            <select id="cov_Fit" class="fi" onchange="toggleImgSettingsHint('cov')">
+              <option value="auto">Auto-Extend (Full Image, Seamless Fill)</option>
+              <option value="fill">Fill (Crop to frame, No borders)</option>
+              <option value="fit">Fit (Keep full image, Solid border)</option>
+            </select>
           </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Frame</span>
-            <div class="crop-seg">
-              <button id="img_FitBtn" class="btn" title="Fit whole image inside frame, no cropping" aria-label="Fit Image">⛶ Fit</button>
-              <button id="img_FillBtn" class="btn" title="Fill entire frame (default)" aria-label="Fill Frame">⬛ Fill</button>
-              <button id="img_CenterBtn" class="btn" title="Snap image dead-center" aria-label="Center Image">🎯 Center</button>
+          <div id="cov_Bg_Container"><label class="field-label" for="cov_Bg">Background Fill</label>
+            <select id="cov_Bg" class="fi">
+              <option value="white">Pure White</option>
+              <option value="black">Pure Black</option>
+              <option value="transparent">Transparent (PNG Output)</option>
+            </select>
+          </div>
+          <div><label class="field-label" for="cov_BgRm">AI Magic</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;color:var(--t1);transition:all .2s;">
+              <input type="checkbox" id="cov_BgRm" onchange="toggleImgSettingsHint('cov')" style="accent-color:var(--org);width:16px;height:16px;">
+              ✨ Remove BG First
+            </label>
+          </div>
+        </div>
+
+        <div id="cov_ProgWrap" style="display:none">
+          <div class="prog-block">
+            <div class="prog-top">
+              <div class="prog-bar-track">
+                <div id="cov_ProgBar" class="prog-bar-fill"></div>
+              </div>
+              <span id="cov_ProgPct" class="prog-pct-badge">0%</span>
+            </div>
+            <div class="prog-bottom">
+              <span id="cov_ProgLbl" class="prog-file-name">Processing...</span>
+              <span id="cov_ETA" class="prog-eta"></span>
+              <div class="prog-counters">
+                <span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span>
+                <span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span>
+                <span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span>
+              </div>
             </div>
           </div>
-          <div class="crop-ctrl-row">
-            <span class="crop-ctrl-label">Rotate</span>
-            <button id="img_RotL" class="btn crop-icon-btn" title="Rotate Left 90°" aria-label="Rotate Left"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 2.6 6.4"/><path d="M3 4v6h6"/></svg></button>
-            <button id="img_RotR" class="btn crop-icon-btn" title="Rotate Right 90°" aria-label="Rotate Right"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10a9 9 0 1 0-2.6 6.4"/><path d="M21 4v6h-6"/></svg></button>
-            <span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center;">0°</span>
-            <button id="img_RotReset" class="btn" title="Reset rotation to 0°" aria-label="Reset Rotation" style="font-size:11px;padding:6px 10px;margin-left:auto;">Reset</button>
-            <button id="img_UndoBtn" class="btn crop-icon-btn" title="Undo last change (Ctrl+Z)" aria-label="Undo Last Change"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:1.25rem">
+          <button id="cov_StartBtn" disabled aria-label="Process and Download Covers" style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35;transition:all 0.2s;">⚡ Process &amp; Download ZIP</button>
+          <button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer" aria-label="Stop Processing">⏹ Stop</button>
+        </div>
+
+        <div id="cov_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto; padding-right:4px;"></div>
+        
+        <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem; backdrop-filter:blur(8px);">
+          <div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)">
+              <div style="font-size:14px;font-weight:700;color:var(--t1)" id="cov_CropModalTitle">✂️ Smart Crop</div>
+              <button id="cov_CropCloseX" aria-label="Close Crop Modal" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px;transition:0.2s;" onmouseover="this.style.color='#fff'">✕</button>
+            </div>
+            <div style="padding:0.75rem">
+              <div id="cov_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none; border:1px solid var(--b);">
+                <img id="cov_CropImg" draggable="false" alt="Image to crop" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none">
+                <div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Zoom</span>
+                <button id="cov_ZoomOut" class="btn crop-icon-btn" aria-label="Zoom Out" title="Zoom Out">−</button>
+                <input type="range" id="cov_CropZoomSlider" aria-label="Zoom Crop" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)">
+                <button id="cov_ZoomIn" class="btn crop-icon-btn" aria-label="Zoom In" title="Zoom In">+</button>
+                <span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right;">100%</span>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Frame</span>
+                <div class="crop-seg">
+                  <button id="cov_FitBtn" class="btn" title="Fit whole image inside frame, no cropping" aria-label="Fit Image">⛶ Fit</button>
+                  <button id="cov_FillBtn" class="btn" title="Fill entire frame (default)" aria-label="Fill Frame">⬛ Fill</button>
+                  <button id="cov_CenterBtn" class="btn" title="Snap image dead-center" aria-label="Center Image">🎯 Center</button>
+                </div>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Rotate</span>
+                <button id="cov_RotL" class="btn crop-icon-btn" title="Rotate Left 90°" aria-label="Rotate Left"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 2.6 6.4"/><path d="M3 4v6h6"/></svg></button>
+                <button id="cov_RotR" class="btn crop-icon-btn" title="Rotate Right 90°" aria-label="Rotate Right"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10a9 9 0 1 0-2.6 6.4"/><path d="M21 4v6h-6"/></svg></button>
+                <span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center;">0°</span>
+                <button id="cov_RotReset" class="btn" title="Reset rotation to 0°" aria-label="Reset Rotation" style="font-size:11px;padding:6px 10px;margin-left:auto;">Reset</button>
+                <button id="cov_UndoBtn" class="btn crop-icon-btn" title="Undo last change (Ctrl+Z)" aria-label="Undo Last Change"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem">
+              <button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button>
+              <button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button>
+              <button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button>
+            </div>
           </div>
         </div>
-        <div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem">
-          <button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button>
-          <button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button>
-          <button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <div>
+      <div class="section-label">
+        <div class="num">3</div>
+        <div><h2><span class="sec-icon">✨</span> Menu Images</h2><p>Strictly resizes and processes outputs to 810 × 540.</p></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <a href="https://cleanup.pictures" target="_blank" rel="noopener" class="btn" aria-label="Open Cleanup.Pictures" title="Remove unwanted objects/watermarks with Cleanup.Pictures" style="padding:6px 12px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">🧽 Cleanup.Pictures</a>
+        </div>
+        <div id="img_Zone" class="upload-zone" tabindex="0" role="button" aria-label="Upload Menu Images Drop Zone">
+          <div style="font-size:36px;margin-bottom:10px">🪄</div>
+          <p style="font-size:14px;font-weight:700;color:var(--org)">Drop Menu Images Here</p>
+          <small style="font-size:11px;color:var(--t2)">PNG · JPG/JPEG · WebP · AVIF · PDF</small>
+        </div>
+        <input type="file" id="img_Input" accept="image/*,.avif,.jpeg,.pdf,application/pdf" multiple style="display:none">
+        
+        <div id="img_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:700;color:var(--t1)">📁 <span id="img_Count">0</span> loaded</span>
+          <span style="font-size:12px;color:var(--org);font-weight:700;" id="img_SelCount">(0 selected)</span>
+          <span style="font-size:12px;color:var(--t2)">Size: <strong id="img_MB" style="color:var(--t1)">0 MB</strong></span>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <button id="img_SelectAllBtn" class="btn" aria-label="Select All Menu Images" style="padding:6px 12px;font-size:11px;">☑ Select All</button>
+            <button id="img_SelectNoneBtn" class="btn" aria-label="Select None Menu Images" style="padding:6px 12px;font-size:11px;">☐ Select None</button>
+            <button id="img_ClearBtn" class="btn btn-stop" aria-label="Clear All Menu Images" style="padding:6px 12px;font-size:11px;">✕ Clear</button>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <div>
+            <label class="field-label" for="img_Fit">Fit mode</label>
+            <select id="img_Fit" class="fi" onchange="toggleImgSettingsHint('img')">
+              <option value="smart" selected>🤖 Smart Auto Mode (Detects Aspect Ratio & Background)</option>
+              <option value="fit">Fit (Keep Full Image + Solid Border Padding)</option>
+              <option value="auto">Auto-Extend (Full Image + Seamless Edge Cloning)</option>
+              <option value="fill">Fill (Geometric Center Crop + Zero Borders)</option>
+              <option value="genfill">✨ Generative Fill (AI Gradient Blend Match)</option>
+            </select>
+          </div>
+          <div id="img_Bg_Container">
+            <label class="field-label" for="img_Bg">Background Fill</label>
+            <select id="img_Bg" class="fi">
+              <option value="white">Pure White</option>
+              <option value="black">Pure Black</option>
+              <option value="transparent">Transparent (PNG Output)</option>
+            </select>
+          </div>
+          <div><label class="field-label" for="img_BgRm">AI Magic</label>
+            <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;color:var(--t1);transition:all .2s;">
+              <input type="checkbox" id="img_BgRm" onchange="toggleImgSettingsHint('img')" style="accent-color:var(--org);width:16px;height:16px;">
+              ✨ Remove BG First
+            </label>
+          </div>
+        </div>
+
+        <!-- Dynamic Context Hints -->
+        <div id="img_HintBox" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--inp);border:1px solid var(--b);border-radius:8px;margin-bottom:1rem">
+          <span id="img_HintIcon" style="font-size:22px">🤖</span>
+          <div>
+            <div id="img_HintTitle" style="font-size:13px;font-weight:700;color:var(--t1)">Smart Auto Mode Active</div>
+            <div id="img_HintDesc" style="font-size:11px;color:var(--t2);margin-top:2px">Automatically checks background. Solid background objects get padded symmetrically with safe margins; complex landscape images undergo custom centered-frame crops.</div>
+          </div>
+        </div>
+
+        <div id="img_ProgWrap" style="display:none">
+          <div class="prog-block">
+            <div class="prog-top">
+              <div class="prog-bar-track">
+                <div id="img_ProgBar" class="prog-bar-fill"></div>
+              </div>
+              <span id="img_ProgPct" class="prog-pct-badge">0%</span>
+            </div>
+            <div class="prog-bottom">
+              <span id="img_ProgLbl" class="prog-file-name">Processing...</span>
+              <span id="img_ETA" class="prog-eta"></span>
+              <div class="prog-counters">
+                <span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span>
+                <span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span>
+                <span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:1.25rem">
+          <button id="img_StartBtn" disabled aria-label="Process and Download Menu Images" style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35;transition:all 0.2s;">⚡ Process &amp; Download ZIP</button>
+          <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer" aria-label="Stop Processing">⏹ Stop</button>
+        </div>
+
+        <div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto; padding-right:4px;"></div>
+        
+        <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem; backdrop-filter:blur(8px);">
+          <div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)">
+              <div style="font-size:14px;font-weight:700;color:var(--t1)" id="img_CropModalTitle">✂️ Smart Crop</div>
+              <button id="img_CropCloseX" aria-label="Close Crop Modal" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;padding:4px;transition:0.2s;" onmouseover="this.style.color='#fff'">✕</button>
+            </div>
+            <div style="padding:0.75rem">
+              <div id="img_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none; border:1px solid var(--b);">
+                <img id="img_CropImg" draggable="false" alt="Image to crop" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none">
+                <div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Zoom</span>
+                <button id="img_ZoomOut" class="btn crop-icon-btn" aria-label="Zoom Out" title="Zoom Out">−</button>
+                <input type="range" id="img_CropZoomSlider" aria-label="Zoom Crop" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)">
+                <button id="img_ZoomIn" class="btn crop-icon-btn" aria-label="Zoom In" title="Zoom In">+</button>
+                <span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right;">100%</span>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Frame</span>
+                <div class="crop-seg">
+                  <button id="img_FitBtn" class="btn" title="Fit whole image inside frame, no cropping" aria-label="Fit Image">⛶ Fit</button>
+                  <button id="img_FillBtn" class="btn" title="Fill entire frame (default)" aria-label="Fill Frame">⬛ Fill</button>
+                  <button id="img_CenterBtn" class="btn" title="Snap image dead-center" aria-label="Center Image">🎯 Center</button>
+                </div>
+              </div>
+              <div class="crop-ctrl-row">
+                <span class="crop-ctrl-label">Rotate</span>
+                <button id="img_RotL" class="btn crop-icon-btn" title="Rotate Left 90°" aria-label="Rotate Left"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a9 9 0 1 1 2.6 6.4"/><path d="M3 4v6h6"/></svg></button>
+                <button id="img_RotR" class="btn crop-icon-btn" title="Rotate Right 90°" aria-label="Rotate Right"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10a9 9 0 1 0-2.6 6.4"/><path d="M21 4v6h-6"/></svg></button>
+                <span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center;">0°</span>
+                <button id="img_RotReset" class="btn" title="Reset rotation to 0°" aria-label="Reset Rotation" style="font-size:11px;padding:6px 10px;margin-left:auto;">Reset</button>
+                <button id="img_UndoBtn" class="btn crop-icon-btn" title="Undo last change (Ctrl+Z)" aria-label="Undo Last Change"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem">
+              <button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button>
+              <button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button>
+              <button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1022,7 +987,6 @@ function playSuccessChime() {
         gainNode.connect(audioCtx.destination);
         
         oscillator.type = 'sine';
-        // C-Major Ascending Arpeggio
         oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
         oscillator.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
         oscillator.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
@@ -1037,9 +1001,7 @@ function playSuccessChime() {
     } catch(e) { console.log('Audio not supported or blocked'); }
 }
 
-function notifyCompletion(msg) {
-    // Desktop/browser notification popups disabled per request — toast + sound still play.
-}
+function notifyCompletion(msg) {}
 
 // ══ WORKER POOL ARCHITECTURE ══
 const workerSrc = document.getElementById('workerScript').textContent;
@@ -1073,6 +1035,26 @@ function getWorker() {
 // ══ GLOBAL HELPERS ══
 function dlBlob(blob, name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click()}
 
+async function getQuickScaledBlob(file, maxDim) {
+    let bmp = await createImageBitmap(file);
+    let w = bmp.width, h = bmp.height;
+    if (w <= maxDim && h <= maxDim) {
+        bmp.close();
+        return file;
+    }
+    let scale = maxDim / Math.max(w, h);
+    let nw = Math.round(w * scale), nh = Math.round(h * scale);
+    let c = document.createElement('canvas');
+    c.width = nw; c.height = nh;
+    let ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bmp, 0, 0, nw, nh);
+    bmp.close();
+    let mime = (file.type === 'image/png') ? 'image/png' : 'image/jpeg';
+    return new Promise(r => c.toBlob(r, mime, 0.95));
+}
+
 // ══ HIGH-QUALITY LOGO PIPELINE (pica/Lanczos, main thread) ══
 var _picaInstance = (typeof window.pica === 'function') ? window.pica() : null;
 
@@ -1082,7 +1064,7 @@ async function picaHqScale(source, sw, sh, dw, dh) {
         try {
             await _picaInstance.resize(source, dest, { quality: 3, alpha: true });
             return dest;
-        } catch (e) { /* fall through to manual step-down */ }
+        } catch (e) { }
     }
     var curSrc = source, curW = sw, curH = sh;
     while (curW > dw * 2 || curH > dh * 2) {
@@ -1120,9 +1102,15 @@ function picaRotateCanvas(canvas, deg) {
 }
 
 async function processLogoMainThread(file, opts) {
-    var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    var isPdf = file.type === 'application/pdf' || (file.name && /\.pdf$/i.test(file.name));
     var srcCanvas;
-    if (isPdf) {
+    
+    // Fix: Force 'fit' mode if it's a transparent cutout to prevent algorithms from turning empty space black
+    if (opts.doBgRm && (opts.fitMode === 'smart' || opts.fitMode === 'auto' || opts.fitMode === 'genfill')) {
+        opts.fitMode = 'fit';
+    }
+    
+    if (isPdf && file.arrayBuffer) {
         var arrayBuffer = await file.arrayBuffer();
         var pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         var page = await pdf.getPage(1);
@@ -1158,8 +1146,10 @@ async function processLogoMainThread(file, opts) {
         var scaled = await picaHqScale(srcCanvas, srcCanvas.width, srcCanvas.height, dw, dh);
         tctx.drawImage(scaled, dx, dy);
     } else {
-        tctx.fillStyle = (opts.bg === 'orange') ? '#FF6B35' : (opts.bg === 'black' ? '#000000' : '#FFFFFF');
-        tctx.fillRect(0, 0, W, H);
+        if (opts.bg !== 'transparent') {
+            tctx.fillStyle = (opts.bg === 'black' ? '#000000' : '#FFFFFF');
+            tctx.fillRect(0, 0, W, H);
+        }
         var scale2 = Math.min(W / srcCanvas.width, H / srcCanvas.height);
         var dw2 = Math.round(srcCanvas.width * scale2), dh2 = Math.round(srcCanvas.height * scale2);
         var dx2 = Math.round((W - dw2) / 2), dy2 = Math.round((H - dh2) / 2);
@@ -1167,8 +1157,9 @@ async function processLogoMainThread(file, opts) {
         tctx.drawImage(scaled2, dx2, dy2);
     }
 
+    let outType = (opts.bg === 'transparent') ? 'image/png' : 'image/jpeg';
     return new Promise(function(resolve) {
-        target.toBlob(function(blob) { resolve(blob); }, 'image/jpeg', opts.quality || 0.95);
+        target.toBlob(function(blob) { resolve(blob); }, outType, opts.quality || 0.95);
     });
 }
 
@@ -1318,7 +1309,7 @@ function createResizerTool(prefix, targetW, targetH) {
             
             div.appendChild(chkWrap); div.appendChild(img); div.appendChild(badge); div.appendChild(label);
             div.addEventListener('click', () => brOpenCropModal(idx));
-            div.addEventListener('mouseenter', e => startHoverPreview(prefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, getEl('Fit').value, brCrops[idx], (prefix === 'logo') ? 1.0 : 0.95, e));
+            div.addEventListener('mouseenter', e => startHoverPreview(prefix, idx, brFiles[idx], targetW, targetH, getEl('Bg') ? getEl('Bg').value : 'white', getEl('Fit') ? getEl('Fit').value : 'fill', brCrops[idx], (prefix === 'logo') ? 1.0 : 0.95, e));
             div.addEventListener('mousemove', e => brMoveHoverPreview(e));
             div.addEventListener('mouseleave', () => brStopHoverPreview());
             fragment.appendChild(div);
@@ -1548,76 +1539,105 @@ function createResizerTool(prefix, targetW, targetH) {
     getEl('StopBtn').addEventListener('click', () => brStopped=true);
     getEl('StartBtn').addEventListener('click', async () => {
         
-        
         var filesToProcess = brFiles.map((f, i) => brSelected[i] ? {file:f, origIdx:i} : null).filter(Boolean);
         if(!filesToProcess.length||brRunning)return;
         
+        var doBgRm = getEl('BgRm') && getEl('BgRm').checked;
+        if (doBgRm && !window.imglyRemoveBackground) {
+            brShowToast('AI module is still loading. Please wait a few seconds and try again.', 'error');
+            return;
+        }
+
         brRunning=true; brStopped=false;
         getEl('StartBtn').disabled=true; getEl('StopBtn').style.display='inline-flex'; getEl('ProgWrap').style.display='block';
         
-        var bg=getEl('Bg').value, fitMode=getEl('Fit').value;
-        var outQuality = (prefix === 'logo') ? 1.0 : 0.95;
+        var bg = getEl('Bg') ? getEl('Bg').value : 'white';
+        var fitMode = getEl('Fit') ? getEl('Fit').value : 'fill';
+        var outQuality = 0.95;
         var total=filesToProcess.length, done=0, failed=0, zip=new JSZip(), singleBlob=null, singleName=null, usedNames={};
 
         var startTime = Date.now();
         var index = 0;
-        var activeWorkers = 0;
+        var completedItems = 0;
 
         await new Promise(resolveQueue => {
-            function dispatchNext() {
-                if (index >= total && activeWorkers === 0) {
-                    resolveQueue();
-                    return;
-                }
-                while (activeWorkers < poolSize && index < total) {
-                    if (brStopped) {
-                        if (activeWorkers === 0) resolveQueue();
-                        return;
-                    }
-                    
-                    let item = filesToProcess[index++];
-                    activeWorkers++;
-
-                    var _procOpts = {W:targetW, H:targetH, bg, fitMode, crop:brCrops[item.origIdx]||null, quality:outQuality};
-                    var _useMainThreadPica = (prefix === 'logo' && (fitMode === 'fit' || fitMode === 'fill'));
-                    (_useMainThreadPica ? processLogoMainThread(item.file, _procOpts) : processViaWorker(item.file, _procOpts))
-                        .then(blob => {
-                            var baseNameMap = { logo: 'Resized Logo', cov: 'Resized Cover' };
-                            var fname;
-                            var ext = '.jpg';
-                            if (baseNameMap[prefix]) {
-                                var base = baseNameMap[prefix];
-                                fname = base + ext;
-                                if (usedNames[fname]) { usedNames[fname]++; fname = base + ' (' + usedNames[fname] + ')' + ext; } else { usedNames[fname] = 1; }
-                            } else {
-                                fname = item.file.name.replace(/\.[^.]+$/,'') + ext;
-                                if (usedNames[fname]) { usedNames[fname]++; fname = item.file.name.replace(/\.[^.]+$/,'') + '_' + usedNames[fname] + ext; } else { usedNames[fname] = 1; }
+            async function processNext() {
+                if (index >= total || brStopped) return;
+                let myIdx = index++;
+                let item = filesToProcess[myIdx];
+                
+                if (doBgRm) getEl('ProgLbl').textContent = `AI Magic on ${item.file.name}... (${myIdx+1}/${total})`;
+                
+                let fileToProcess = item.file;
+                if (doBgRm) {
+                    try {
+                        // Pre-scale image to 1200px. This is large enough to keep razor-sharp edges but vastly improves processing time.
+                        let scaledBlob = await getQuickScaledBlob(item.file, 1200);
+                        
+                        // We rely on the DEFAULT HIGH QUALITY model here (isnet) to perfectly trace borders.
+                        let pngBlob = await window.imglyRemoveBackground(scaledBlob, {
+                            output: { format: 'image/png', quality: 1.0 }, 
+                            progress: (key, current, total_bytes) => {
+                                if (key.includes('Fetching')) {
+                                    getEl('ProgLbl').textContent = `Loading High-Res AI Models... (${Math.round((current/total_bytes)*100)}%)`;
+                                }
                             }
-                            if(total === 1){ singleBlob = blob; singleName = fname; } else { zip.file(fname, blob); }
-                            done++; getEl('Done').textContent = done;
-                        })
-                        .catch(err => {
-                            failed++; getEl('Fail').textContent = failed;
-                            console.error("Worker failed on", item.file.name, err);
-                        })
-                        .finally(() => {
-                            activeWorkers--;
-                            let pct = Math.round(((done + failed) / total) * 100);
-                            getEl('ProgBar').style.width = pct + '%'; getEl('ProgPct').textContent = pct + '%';
-                            getEl('ProgLbl').textContent = `Processing... (${done + failed}/${total})`; 
-                            getEl('Left').textContent = total - (done + failed);
-                            
-                            var elapsed = (Date.now() - startTime) / 1000;
-                            var rate = (done + failed) / elapsed;
-                            var remaining = Math.ceil((total - (done + failed)) / Math.max(rate, 0.01));
-                            var etaEl = getEl('ETA');
-                            if(etaEl) etaEl.textContent = remaining < 60 ? `~${remaining}s left` : `~${Math.ceil(remaining/60)}m left`;
-                            
-                            dispatchNext();
                         });
+                        pngBlob.name = item.file.name;
+                        fileToProcess = pngBlob;
+                    } catch(err) {
+                        console.error("AI BG removal failed on", item.file.name, err);
+                    }
                 }
+
+                // Immediately trigger the next AI process so the background Workers can parallelize the resizing
+                processNext();
+
+                var _procOpts = {W:targetW, H:targetH, bg, fitMode, crop:brCrops[item.origIdx]||null, quality:outQuality, doBgRm: doBgRm};
+                var _useMainThreadPica = (prefix === 'logo' && (fitMode === 'fit' || fitMode === 'fill'));
+                
+                let p = _useMainThreadPica ? processLogoMainThread(fileToProcess, _procOpts) : processViaWorker(fileToProcess, _procOpts);
+                
+                p.then(blob => {
+                    var baseNameMap = { logo: 'Resized Logo', cov: 'Resized Cover' };
+                    var isTrans = (bg === 'transparent');
+                    var ext = isTrans ? '.png' : '.jpg';
+                    var fname;
+                    
+                    if (baseNameMap[prefix]) {
+                        var base = baseNameMap[prefix];
+                        fname = base + (doBgRm ? '_nobg' : '') + ext;
+                        if (usedNames[fname]) { usedNames[fname]++; fname = base + (doBgRm ? '_nobg' : '') + ' (' + usedNames[fname] + ')' + ext; } else { usedNames[fname] = 1; }
+                    } else {
+                        fname = item.file.name.replace(/\.[^.]+$/,'') + (doBgRm ? '_nobg' : '') + ext;
+                        if (usedNames[fname]) { usedNames[fname]++; fname = item.file.name.replace(/\.[^.]+$/,'') + (doBgRm ? '_nobg_' : '_') + usedNames[fname] + ext; } else { usedNames[fname] = 1; }
+                    }
+                    if(total === 1){ singleBlob = blob; singleName = fname; } else { zip.file(fname, blob); }
+                    done++; getEl('Done').textContent = done;
+                })
+                .catch(err => {
+                    failed++; getEl('Fail').textContent = failed;
+                    console.error("Worker failed on", item.file.name, err);
+                })
+                .finally(() => {
+                    completedItems++;
+                    let pct = Math.round((completedItems / total) * 100);
+                    getEl('ProgBar').style.width = pct + '%'; getEl('ProgPct').textContent = pct + '%';
+                    getEl('ProgLbl').textContent = `Processing... (${completedItems}/${total})`; 
+                    getEl('Left').textContent = total - completedItems;
+                    
+                    var elapsed = (Date.now() - startTime) / 1000;
+                    var rate = completedItems / elapsed;
+                    var remaining = Math.ceil((total - completedItems) / Math.max(rate, 0.01));
+                    var etaEl = getEl('ETA');
+                    if(etaEl) etaEl.textContent = remaining < 60 ? `~${remaining}s left` : `~${Math.ceil(remaining/60)}m left`;
+                    
+                    if (completedItems >= total) resolveQueue();
+                });
             }
-            dispatchNext();
+
+            // Start processing (Concurrency limit of 1 for AI so browser doesn't freeze)
+            processNext();
         });
 
         getEl('ProgBar').style.width='100%'; getEl('ProgPct').textContent='100%';
@@ -1630,7 +1650,6 @@ function createResizerTool(prefix, targetW, targetH) {
 
         if (!brStopped) {
             playSuccessChime();
-            notifyCompletion(`🎉 Batch Complete! ${done}/${total} processed in ${timeStr}.`);
         }
 
         if(total===1 && singleBlob){ dlBlob(singleBlob, singleName); }
@@ -1663,11 +1682,73 @@ function brGetFtBadge(filename) {
   return '<span class="ft-badge '+cls+'">'+(ext==='jpeg'?'jpg':ext)+'</span>';
 }
 
+function toggleImgSettingsHint(prefix) {
+    if (!document.getElementById(prefix + '_Fit')) return;
+
+    const mode = document.getElementById(prefix + '_Fit').value;
+    const bgContainer = document.getElementById(prefix + '_Bg_Container');
+    const isBgRm = document.getElementById(prefix + '_BgRm') && document.getElementById(prefix + '_BgRm').checked;
+    
+    const title = document.getElementById(prefix + '_HintTitle');
+    const desc = document.getElementById(prefix + '_HintDesc');
+    const icon = document.getElementById(prefix + '_HintIcon');
+
+    // If removing BG, we ALWAYS need to let the user choose the background fill
+    if (mode === 'fit' || mode === 'auto' || isBgRm) {
+        if(bgContainer) {
+            bgContainer.style.opacity = '1';
+            bgContainer.style.pointerEvents = 'all';
+        }
+    } else {
+        if(bgContainer) {
+            bgContainer.style.opacity = '0.35';
+            bgContainer.style.pointerEvents = 'none';
+        }
+    }
+
+    if(title && desc && icon) {
+        if (mode === 'smart') {
+            icon.textContent = '🤖';
+            title.textContent = 'Smart Auto Mode Active';
+            desc.innerHTML = 'Automatically checks background. Solid background objects get padded symmetrically with safe margins; complex landscape images undergo custom centered-frame crops.';
+        } else if (mode === 'fit') {
+            icon.textContent = '🖼️';
+            title.textContent = 'Proportional Fit Selected';
+            desc.innerHTML = 'Forces the entire product image to remain fully visible. Empty space is padded with your designated canvas fill background.';
+        } else if (mode === 'auto') {
+            icon.textContent = '🔄';
+            title.textContent = 'Auto-Extend Active';
+            desc.innerHTML = 'Keeps the product whole while extending canvas boundaries via complex seamless mirroring algorithms. Looks great on structured graphics.';
+        } else if (mode === 'fill') {
+            icon.textContent = '⬛';
+            title.textContent = 'Center Crop Active';
+            desc.innerHTML = 'Scales image down completely seamlessly, cropping overflow uniformly across coordinate vectors without stretching canvas details.';
+        } else if (mode === 'genfill') {
+            icon.textContent = '✨';
+            title.textContent = 'Generative Border Match Enabled';
+            desc.innerHTML = 'Reads edge-pixel vectors to render smooth linear gradient extensions mimicking lighting values without flattening the primary object structure.';
+        }
+    }
+}
+
 window.onload = function() {
     createResizerTool('logo', 200, 200); 
     createResizerTool('cov', 750, 300);  
     createResizerTool('img', 810, 540);  
+    toggleImgSettingsHint('logo');
+    toggleImgSettingsHint('cov');
+    toggleImgSettingsHint('img');
 };
+</script>
+
+<!-- Silent AI Pre-Warm: Initializes the model in the background as soon as the page loads so it is instantly ready when clicked -->
+<script>
+  if (window.imglyRemoveBackground) {
+      setTimeout(() => {
+          const c = document.createElement('canvas'); c.width = 1; c.height = 1;
+          window.imglyRemoveBackground(c).catch(()=>{});
+      }, 1000);
+  }
 </script>
 
 <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 40px 40px;">
@@ -1683,7 +1764,7 @@ window.onload = function() {
     <div style="width:6px;height:36px;border-radius:4px;background:linear-gradient(180deg,var(--org),var(--red));flex-shrink:0;"></div>
     <div style="text-align:right;">
       <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:var(--org);margin-bottom:2px;">Under The Supervision of</div>
-      <div style="font-size:14px;font-weight:700;color:var(--t1);letter-spacing:.01em;">Samar Maher</div>
+      <div style="font-size:14px;font-weight:700;color:var(--t1);letter-spacing:.01em;">Samar Abdelaziz</div>
     </div>
   </div>
 </div>
