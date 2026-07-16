@@ -19,17 +19,20 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --org:#FF6B35;--red:#E8192C;
-  --bg:#0b0b10;
-  --card:rgba(24, 24, 32, 0.6);
-  --card2:rgba(34, 34, 46, 0.4);
-  --inp:rgba(20, 20, 28, 0.8);
-  --b:rgba(255, 255, 255, 0.08);
-  --b2:rgba(255, 255, 255, 0.15);
-  --t1:#f0f0f6;--t2:#8888a8;--t3:#52527a;
+  --org:#FF6B35;
+  --red:#E8192C;
+  --bg:#1C1C1C; /* Semi-dark grey */
+  --card:rgba(42, 42, 42, 0.75); /* Dark grey card */
+  --card2:rgba(55, 55, 55, 0.6); /* Lighter dark grey */
+  --inp:rgba(28, 28, 28, 0.9); /* Input background */
+  --b:rgba(255, 107, 53, 0.18); /* Orange tinted border */
+  --b2:rgba(255, 107, 53, 0.35); /* Orange tinted border hover */
+  --t1:#F0F0F0; /* Light text */
+  --t2:#959595; /* Medium grey text */
+  --t3:#606060; /* Dark grey text */
   --r:20px;--rs:12px;
-  --glow-org: rgba(255, 107, 53, 0.15);
-  --glow-red: rgba(232, 25, 44, 0.15);
+  --glow-org: rgba(255, 107, 53, 0.2);
+  --glow-red: rgba(255, 107, 53, 0.15);
 }
 
 body{
@@ -42,25 +45,25 @@ body{
   position: relative;
 }
 
-/* ✨ AURORA BACKGROUND BLOBS ✨ */
+/* ✨ AURORA BACKGROUND BLOBS (Orange/Grey Theme) ✨ */
 body::before, body::after {
   content: '';
   position: fixed;
   border-radius: 50%;
   filter: blur(120px);
-  opacity: 0.35;
+  opacity: 0.4;
   z-index: 0;
   pointer-events: none;
   animation: floatAurora 25s infinite alternate ease-in-out;
 }
 body::before {
   width: 600px; height: 600px;
-  background: radial-gradient(circle, var(--red), transparent 70%);
+  background: radial-gradient(circle, rgba(255, 107, 53, 0.25), transparent 70%);
   top: -200px; left: -200px;
 }
 body::after {
   width: 500px; height: 500px;
-  background: radial-gradient(circle, var(--org), transparent 70%);
+  background: radial-gradient(circle, rgba(255, 130, 70, 0.15), transparent 70%);
   bottom: -150px; right: -150px;
   animation-delay: -12s;
 }
@@ -71,7 +74,7 @@ body::after {
 }
 
 .header{
-  background: rgba(11, 11, 16, 0.7);
+  background: rgba(28, 28, 28, 0.85);
   border-bottom: 1px solid var(--b);
   padding: 0 2rem; height: 68px;
   display: flex; align-items: center; justify-content: space-between;
@@ -81,6 +84,66 @@ body::after {
 }
 .hl{display:flex;align-items:center;gap:14px}
 .logo-text{font-size:34px;font-weight:800;letter-spacing:-1px;color:var(--org);text-shadow:0 0 20px rgba(255,107,53,.35)}
+
+/* ✨ ICON ANIMATIONS ✨ */
+@keyframes logoPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.header .hl svg {
+  animation: logoPulse 4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes floatWand {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.magic-wand {
+  display: inline-block;
+  animation: floatWand 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 107, 53, 0.4));
+}
+
+.section-label .num {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.section-label:hover .num {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+.cleanup-btn {
+  position: relative;
+  overflow: hidden;
+}
+.cleanup-btn .wand-icon {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cleanup-btn:hover .wand-icon {
+  transform: rotate(-15deg) scale(1.2);
+}
+.cleanup-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.5s ease;
+}
+.cleanup-btn:hover::before {
+  left: 100%;
+}
+
+.crop-icon-btn {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.crop-icon-btn:hover {
+  transform: scale(1.15);
+  color: var(--org) !important;
+  border-color: var(--org) !important;
+  background: rgba(255, 107, 53, 0.1) !important;
+}
 
 .hero{text-align:center;padding:3rem 2rem 1.5rem; position: relative; z-index: 1;}
 .hero h1{
@@ -117,13 +180,13 @@ body::after {
   overflow: hidden;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
   transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
   z-index: 1;
 }
 .card:hover {
-  border-color: rgba(255, 107, 53, 0.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);
+  border-color: rgba(255, 107, 53, 0.3);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,107,53,0.1);
   transform: translateY(-2px);
 }
 
@@ -135,11 +198,11 @@ select.fi, input.fi-text{
   font-size:13px;background:var(--inp);color:var(--t1);
   outline:none;font-family:'Inter',sans-serif;
   transition: all 0.2s ease;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
 }
 select.fi:focus, input.fi-text:focus {
   border-color: var(--org);
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.15), inset 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.15), inset 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .field-label{display:block;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px}
@@ -152,7 +215,7 @@ select.fi:focus, input.fi-text:focus {
   transition:all .2s ease;
   backdrop-filter: blur(10px);
 }
-.btn:hover{border-color:var(--b2);background:rgba(46, 46, 62, 0.6);transform:translateY(-1px)}
+.btn:hover{border-color:var(--b2);background:rgba(65, 65, 65, 0.7);transform:translateY(-1px)}
 .btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
 
 .btn-primary{
@@ -180,10 +243,10 @@ select.fi:focus, input.fi-text:focus {
 .btn-icon{width:32px;height:32px;border-radius:8px;border:1px solid var(--b);background:var(--inp);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
 
 .upload-zone{
-  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border: 2px dashed rgba(255, 107, 53, 0.2);
   border-radius: 16px; padding: 2.5rem; text-align: center;
   cursor: pointer;
-  background: linear-gradient(135deg, rgba(34,34,46,0.3), rgba(20,20,28,0.5));
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.4), rgba(28, 28, 28, 0.6));
   transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-bottom: 1.25rem; position: relative; overflow: hidden;
 }
@@ -195,29 +258,67 @@ select.fi:focus, input.fi-text:focus {
 }
 .upload-zone:hover {
   border-color: var(--org);
-  background: linear-gradient(135deg, rgba(255,107,53,0.05), rgba(232,25,44,0.02));
+  background: linear-gradient(135deg, rgba(255,107,53,0.08), rgba(255,107,53,0.03));
   transform: scale(1.01);
 }
 .upload-zone:hover::before { opacity: 1; }
 
-body.light-mode{
-  --bg:#f0f2f5;
-  --card:rgba(255, 255, 255, 0.6);
-  --card2:rgba(245, 245, 250, 0.8);
-  --inp:rgba(255, 255, 255, 0.9);
-  --b:rgba(0, 0, 0, 0.06);
-  --b2:rgba(0, 0, 0, 0.12);
-  --t1:#1a1a22;--t2:#555570;--t3:#888899;
+/* 🎨 DARK ORANGE x DARK CREAMY BEIGE LIGHT MODE 🎨 */
+body.light-mode {
+  --org: #D84315; /* Deep Burnt/Dark Orange */
+  --red: #BF360C;  /* Deep Rust Red */
+  --bg: #E6D5BD;   /* Dark Creamy Beige */
+  --card: rgba(245, 235, 220, 0.85); /* Lighter creamy beige card */
+  --card2: rgba(230, 215, 195, 0.75); /* Slightly darker beige */
+  --inp: #F7EFE5;  /* Soft off-white cream for inputs */
+  --b: rgba(216, 67, 21, 0.25); /* Dark orange border */
+  --b2: rgba(216, 67, 21, 0.5); /* Stronger dark orange on hover */
+  --t1: #2D1A11;   /* Very dark warm brown for high contrast text */
+  --t2: #5D4037;   /* Medium warm brown text */
+  --t3: #8D6E63;   /* Light warm brown text */
+  --glow-org: rgba(216, 67, 21, 0.25);
+  --glow-red: rgba(191, 54, 12, 0.2);
 }
-body.light-mode::before, body.light-mode::after { opacity: 0.1; }
-body.light-mode .header { background: rgba(255,255,255,0.7); border-bottom: 1px solid rgba(0,0,0,0.05); }
-body.light-mode .card { box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
-body.light-mode .card:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.08); }
-body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(240,240,245,0.6)); border-color: rgba(0,0,0,0.1); }
+body.light-mode::before {
+  background: radial-gradient(circle, rgba(216, 67, 21, 0.15), transparent 70%);
+}
+body.light-mode::after {
+  background: radial-gradient(circle, rgba(191, 54, 12, 0.1), transparent 70%);
+}
+body.light-mode .header { background: rgba(230, 213, 189, 0.9); border-bottom: 1px solid rgba(216, 67, 21, 0.2); }
+body.light-mode .logo-text { text-shadow: 0 0 20px rgba(216, 67, 21, 0.3); }
+body.light-mode .card { box-shadow: 0 4px 24px rgba(191, 54, 12, 0.08); }
+body.light-mode .card:hover { box-shadow: 0 12px 40px rgba(191, 54, 12, 0.15); border-color: rgba(216, 67, 21, 0.4); }
+body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(247, 239, 229, 0.6), rgba(230, 215, 195, 0.4)); border-color: rgba(216, 67, 21, 0.3); }
+body.light-mode .upload-zone:hover { background: linear-gradient(135deg, rgba(247, 239, 229, 0.9), rgba(235, 215, 190, 0.7)); border-color: var(--org); }
+body.light-mode select.fi:focus, body.light-mode input.fi-text:focus {
+  box-shadow: 0 0 0 3px rgba(216, 67, 21, 0.15), inset 0 2px 4px rgba(216, 67, 21, 0.05);
+}
+body.light-mode .toast {
+  background: rgba(247, 239, 229, 0.95);
+  border-color: rgba(216, 67, 21, 0.3);
+  color: var(--t1);
+}
+body.light-mode .prog-block {
+  background: linear-gradient(145deg, rgba(247, 239, 229, 0.8), rgba(230, 215, 195, 0.6));
+  border-color: rgba(216, 67, 21, 0.25);
+}
+body.light-mode .prog-bar-track {
+  background: rgba(216, 67, 21, 0.15);
+  box-shadow: inset 0 2px 4px rgba(216, 67, 21, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+body.light-mode .magic-wand {
+  filter: drop-shadow(0 0 8px rgba(216, 67, 21, 0.5));
+}
+body.light-mode .hero h1 {
+  background: linear-gradient(135deg, #3E2723 0%, #5D4037 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
 
 #toastContainer{position:fixed;bottom:80px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .toast{
-  background: rgba(24, 24, 32, 0.8);
+  background: rgba(40, 40, 40, 0.9);
   border:1px solid var(--b);border-radius:12px;padding:12px 18px;
   font-size:13px;font-weight:600;color:var(--t1);
   box-shadow:0 8px 24px rgba(0,0,0,.3);
@@ -237,10 +338,10 @@ body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,
 
 .prog-block{
   margin-bottom:1.5rem;
-  background: linear-gradient(145deg, rgba(34,34,46,0.6), rgba(20,20,28,0.4));
+  background: linear-gradient(145deg, rgba(45, 45, 45, 0.7), rgba(28, 28, 28, 0.5));
   border-radius:14px;padding:18px;
-  border:1px solid rgba(255,107,53,0.15);
-  box-shadow:0 8px 32px rgba(0,0,0,0.2);
+  border:1px solid rgba(255,107,53,0.2);
+  box-shadow:0 8px 32px rgba(0,0,0,0.3);
   position:relative;overflow:hidden;
   backdrop-filter: blur(10px);
 }
@@ -488,8 +589,8 @@ body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,
     <div>
       <div class="section-label"><div class="num">1</div><div><h2>✨ Logos</h2><p>Strictly resizes to 200 × 200.</p></div></div>
       <div class="card">
-        <div id="logo_Zone" class="upload-zone"><div style="font-size:36px;margin-bottom:10px">🪄</div><p style="font-size:14px;font-weight:700;color:var(--org)">Drop Logos Here</p><small style="font-size:11px;color:var(--t2)">PNG · JPG · WebP · PDF · HEIC</small></div>
-        <input type="file" id="logo_Input" accept="image/*,.pdf,application/pdf,.heic,.heif" multiple style="display:none">
+        <div id="logo_Zone" class="upload-zone"><div class="magic-wand" style="font-size:36px;margin-bottom:10px">🪄</div><p style="font-size:14px;font-weight:700;color:var(--org)">Drop Logos Here</p><small style="font-size:11px;color:var(--t2)">PNG · JPG · WebP · PDF · HEIC · AVIF</small></div>
+        <input type="file" id="logo_Input" accept="image/*,.pdf,application/pdf,.heic,.heif,.avif" multiple style="display:none">
         <div id="logo_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:13px;font-weight:700">📁 <span id="logo_Count">0</span> loaded</span>
           <span style="font-size:12px;color:var(--org);font-weight:700" id="logo_SelCount">(0 selected)</span>
@@ -499,14 +600,14 @@ body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,
           <div><label class="field-label">Fit mode</label><select id="logo_Fit" class="fi"><option value="fit">Fit</option><option value="auto">Auto-Extend</option><option value="fill">Fill</option><option value="genfill">Generative Fill</option></select></div>
           <div><label class="field-label">Background</label><select id="logo_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
           <div><label class="field-label">Quality: <span id="logo_QVal">95%</span></label><input type="range" id="logo_Quality" min="70" max="100" value="95" style="width:100%;accent-color:var(--org)" oninput="document.getElementById('logo_QVal').textContent=this.value+'%'"></div>
-          <div><label class="field-label">AI Magic</label><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600"><input type="checkbox" id="logo_BgRm" style="accent-color:var(--org)">✨ Remove BG</label></div>
+          <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="logo_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
         </div>
         <div id="logo_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="logo_ProgBar" class="prog-bar-fill"></div></div><span id="logo_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="logo_ProgLbl" class="prog-file-name">Ready...</span><span id="logo_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span></div></div></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem"><button id="logo_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35">⚡ Process & Download</button><button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button></div>
         <div id="logo_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
         
         <!-- LOGO CROP MODAL -->
-        <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="logo_CropModalTitle">✂️ Smart Crop</div><button id="logo_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="logo_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="logo_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="logo_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="logo_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="logo_ZoomIn" class="btn crop-icon-btn">+</button><span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="logo_FitBtn" class="btn">⛶ Fit</button><button id="logo_FillBtn" class="btn">⬛ Fill</button><button id="logo_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="logo_RotL" class="btn crop-icon-btn">↺</button><button id="logo_RotR" class="btn crop-icon-btn">↻</button><span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="logo_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="logo_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+        <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="logo_CropModalTitle">✂️ Smart Crop</div><button id="logo_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="logo_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#222230 0% 25%,#181824 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="logo_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="logo_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="logo_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="logo_ZoomIn" class="btn crop-icon-btn">+</button><span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="logo_FitBtn" class="btn">⛶ Fit</button><button id="logo_FillBtn" class="btn">⬛ Fill</button><button id="logo_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="logo_RotL" class="btn crop-icon-btn">↺</button><button id="logo_RotR" class="btn crop-icon-btn">↻</button><span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="logo_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="logo_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
 
@@ -514,8 +615,8 @@ body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,
     <div>
       <div class="section-label"><div class="num">2</div><div><h2>✨ Covers</h2><p>Strictly resizes to 750 × 300.</p></div></div>
       <div class="card">
-        <div id="cov_Zone" class="upload-zone"><div style="font-size:36px;margin-bottom:10px">🪄</div><p style="font-size:14px;font-weight:700;color:var(--org)">Drop Covers Here</p><small style="font-size:11px;color:var(--t2)">PNG · JPG · WebP · PDF · HEIC</small></div>
-        <input type="file" id="cov_Input" accept="image/*,.pdf,application/pdf,.heic,.heif" multiple style="display:none">
+        <div id="cov_Zone" class="upload-zone"><div class="magic-wand" style="font-size:36px;margin-bottom:10px">🪄</div><p style="font-size:14px;font-weight:700;color:var(--org)">Drop Covers Here</p><small style="font-size:11px;color:var(--t2)">PNG · JPG · WebP · PDF · HEIC · AVIF</small></div>
+        <input type="file" id="cov_Input" accept="image/*,.pdf,application/pdf,.heic,.heif,.avif" multiple style="display:none">
         <div id="cov_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
           <span style="font-size:13px;font-weight:700">📁 <span id="cov_Count">0</span> loaded</span>
           <span style="font-size:12px;color:var(--org);font-weight:700" id="cov_SelCount">(0 selected)</span>
@@ -525,14 +626,14 @@ body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,
           <div><label class="field-label">Fit mode</label><select id="cov_Fit" class="fi"><option value="auto">Auto-Extend</option><option value="fill">Fill</option><option value="fit">Fit</option></select></div>
           <div><label class="field-label">Background</label><select id="cov_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
           <div><label class="field-label">Quality: <span id="cov_QVal">95%</span></label><input type="range" id="cov_Quality" min="70" max="100" value="95" style="width:100%;accent-color:var(--org)" oninput="document.getElementById('cov_QVal').textContent=this.value+'%'"></div>
-          <div><label class="field-label">AI Magic</label><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600"><input type="checkbox" id="cov_BgRm" style="accent-color:var(--org)">✨ Remove BG</label></div>
+          <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="cov_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
         </div>
         <div id="cov_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="cov_ProgBar" class="prog-bar-fill"></div></div><span id="cov_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="cov_ProgLbl" class="prog-file-name">Ready...</span><span id="cov_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span></div></div></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem"><button id="cov_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35">⚡ Process & Download</button><button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button></div>
         <div id="cov_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
         
         <!-- COVER CROP MODAL -->
-        <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="cov_CropModalTitle">✂️ Smart Crop</div><button id="cov_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="cov_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="cov_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="cov_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="cov_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="cov_ZoomIn" class="btn crop-icon-btn">+</button><span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="cov_FitBtn" class="btn">⛶ Fit</button><button id="cov_FillBtn" class="btn">⬛ Fill</button><button id="cov_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="cov_RotL" class="btn crop-icon-btn">↺</button><button id="cov_RotR" class="btn crop-icon-btn">↻</button><span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="cov_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="cov_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+        <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="cov_CropModalTitle">✂️ Smart Crop</div><button id="cov_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="cov_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#222230 0% 25%,#181824 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="cov_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="cov_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="cov_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="cov_ZoomIn" class="btn crop-icon-btn">+</button><span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="cov_FitBtn" class="btn">⛶ Fit</button><button id="cov_FillBtn" class="btn">⬛ Fill</button><button id="cov_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="cov_RotL" class="btn crop-icon-btn">↺</button><button id="cov_RotR" class="btn crop-icon-btn">↻</button><span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="cov_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="cov_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
   </div>
@@ -541,8 +642,8 @@ body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,
   <div style="margin-top:20px;">
     <div class="section-label"><div class="num">3</div><div><h2>✨ Menu Images</h2><p>Strictly resizes to 810 × 540.</p></div></div>
     <div class="card">
-      <div id="img_Zone" class="upload-zone"><div style="font-size:36px;margin-bottom:10px">🪄</div><p style="font-size:14px;font-weight:700;color:var(--org)">Drop Menu Images Here</p><small style="font-size:11px;color:var(--t2)">PNG · JPG · WebP · PDF · HEIC</small></div>
-      <input type="file" id="img_Input" accept="image/*,.pdf,application/pdf,.heic,.heif" multiple style="display:none">
+      <div id="img_Zone" class="upload-zone"><div class="magic-wand" style="font-size:36px;margin-bottom:10px">🪄</div><p style="font-size:14px;font-weight:700;color:var(--org)">Drop Menu Images Here</p><small style="font-size:11px;color:var(--t2)">PNG · JPG · WebP · PDF · HEIC · AVIF</small></div>
+      <input type="file" id="img_Input" accept="image/*,.pdf,application/pdf,.heic,.heif,.avif" multiple style="display:none">
       <div id="img_Stats" style="display:none;margin-bottom:1.25rem;padding:10px 16px;background:var(--inp);border:1px solid var(--b);border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:13px;font-weight:700">📁 <span id="img_Count">0</span> loaded</span>
         <span style="font-size:12px;color:var(--org);font-weight:700" id="img_SelCount">(0 selected)</span>
@@ -552,21 +653,21 @@ body.light-mode .upload-zone { background: linear-gradient(135deg, rgba(255,255,
         <div><label class="field-label">Fit mode</label><select id="img_Fit" class="fi"><option value="smart" selected>🤖 Smart Auto</option><option value="fit">Fit</option><option value="fill">Fill</option></select></div>
         <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
         <div><label class="field-label">Quality: <span id="img_QVal">95%</span></label><input type="range" id="img_Quality" min="70" max="100" value="95" style="width:100%;accent-color:var(--org)" oninput="document.getElementById('img_QVal').textContent=this.value+'%'"></div>
-        <div><label class="field-label">AI Magic</label><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600"><input type="checkbox" id="img_BgRm" style="accent-color:var(--org)">✨ Remove BG</label></div>
+        <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="img_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
       </div>
       <div id="img_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="img_ProgBar" class="prog-bar-fill"></div></div><span id="img_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="img_ProgLbl" class="prog-file-name">Ready...</span><span id="img_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span></div></div></div></div>
       <div style="display:flex;gap:10px;margin-bottom:1.25rem"><button id="img_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35">⚡ Process & Download</button><button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button></div>
       <div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
       
       <!-- MENU CROP MODAL -->
-      <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#1a1a22 0% 25%,#111118 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+      <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;background:repeating-conic-gradient(#222230 0% 25%,#181824 0% 50%) 0 0/14px 14px;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
     </div>
   </div>
 
   <!-- HOVER PREVIEW TOOLTIP -->
   <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; pointer-events:none; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:12px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:340px; gap:12px; align-items:center; backdrop-filter:blur(8px);">
     <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;"><span style="font-size:10px; font-weight:700; color:var(--t2); letter-spacing:1px;">BEFORE</span><img id="hpBefore" style="width:100%; aspect-ratio:1; object-fit:contain; background:#fff; border-radius:8px; border:1px solid var(--b);"></div>
-    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;"><span style="font-size:10px; font-weight:700; color:var(--org); letter-spacing:1px;">AFTER</span><div style="width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden;"><img id="hpAfter" style="width:100%; height:100%; object-fit:contain; display:none;"><div id="hpLoading" style="position:absolute; inset:0; background:rgba(34,34,42,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:600; color:var(--t1);"><span style="font-size:18px;">🪄</span></div></div></div>
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;"><span style="font-size:10px; font-weight:700; color:var(--org); letter-spacing:1px;">AFTER</span><div style="width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden;"><img id="hpAfter" style="width:100%; height:100%; object-fit:contain; display:none;"><div id="hpLoading" style="position:absolute; inset:0; background:rgba(40,40,55,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:600; color:var(--t1);"><span style="font-size:18px;">🪄</span></div></div></div>
   </div>
 
   <!-- FOOTER -->
