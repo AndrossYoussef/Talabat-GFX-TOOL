@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Talabat Food Catalog Studio</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
@@ -668,6 +669,116 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       </div>
       <div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
       <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+    </div>
+  </div>
+
+  <style>
+    #r2iSection .r2i-filepill{display:inline-flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--b);border-radius:10px;padding:8px 14px;font-size:13px;margin-top:14px;color:var(--t1)}
+    #r2iSection .r2i-filepill .x{cursor:pointer;color:var(--t2)}
+    #r2iSection .r2i-filepill .x:hover{color:#ff6b7a}
+
+    #r2iSection .r2i-colmap{display:none;margin-top:18px;gap:16px;flex-wrap:wrap}
+    #r2iSection .r2i-colmap.show{display:flex}
+    #r2iSection .r2i-colmapfield{flex:1;min-width:180px}
+
+    #r2iSection .r2i-previewwrap{display:none;margin-top:18px}
+    #r2iSection .r2i-previewwrap.show{display:block}
+    #r2iSection .r2i-tablewrap{border:1px solid var(--b);border-radius:12px;overflow:hidden;max-height:280px;overflow-y:auto}
+    #r2iSection .r2i-tablewrap table{width:100%;border-collapse:collapse;font-size:13px}
+    #r2iSection .r2i-tablewrap thead th{position:sticky;top:0;background:var(--card2);text-align:left;padding:9px 14px;color:var(--t2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--b)}
+    #r2iSection .r2i-tablewrap tbody tr{border-bottom:1px solid var(--b)}
+    #r2iSection .r2i-tablewrap tbody tr:last-child{border-bottom:none}
+    #r2iSection .r2i-tablewrap tbody td{padding:9px 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;color:var(--t1)}
+    #r2iSection .r2i-rownum{color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:11.5px;width:34px}
+
+    #r2iSection .r2i-stats{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;margin-top:1rem}
+    #r2iSection .r2i-stat{flex:1;min-width:120px;background:var(--card2);border:1px solid var(--b);border-radius:12px;padding:14px 16px}
+    #r2iSection .r2i-num{font-size:26px;font-weight:800}
+    #r2iSection .r2i-lbl{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+    #r2iSection .r2i-stat.ok .r2i-num{color:#4ade80}
+    #r2iSection .r2i-stat.fail .r2i-num{color:#ff6b7a}
+    #r2iSection .r2i-stat.total .r2i-num{color:var(--org)}
+
+    #r2iSection .r2i-reportlist{max-height:300px;overflow-y:auto;border:1px solid var(--b);border-radius:12px}
+    #r2iSection .r2i-reportrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--b);font-size:13px}
+    #r2iSection .r2i-reportrow:last-child{border-bottom:none}
+    #r2iSection .r2i-reportrow.ok{background:rgba(74,222,128,0.08)}
+    #r2iSection .r2i-reportrow.fail{background:rgba(255,107,122,0.08)}
+    #r2iSection .r2i-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+    #r2iSection .r2i-dot.ok{background:#4ade80}
+    #r2iSection .r2i-dot.fail{background:#ff6b7a}
+    #r2iSection .r2i-rname{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)}
+    #r2iSection .r2i-rmsg{color:var(--t2);font-size:11.5px;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+    #r2iSection .r2i-reportrow.fail .r2i-rmsg{color:#ff6b7a}
+    #r2iSection .r2i-reportrow.ok .r2i-rmsg{color:#4ade80}
+    @media (max-width:640px){ #r2iSection .r2i-stats{flex-direction:column} }
+  </style>
+
+  <div style="margin-top:20px;">
+    <div class="section-label"><div class="num">4</div><div><h2>✨ Link 2 Image (Renamed)</h2><p>Import a CSV/Excel sheet of item names + image URLs, auto-download &amp; rename to 810 × 540.</p></div></div>
+    <div class="card" id="r2iSection">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.25rem;">
+        <div><label class="field-label">Case ID</label><input type="text" id="r2i_caseId" class="fi-text" placeholder="e.g. CASE-10234"></div>
+        <div><label class="field-label">Restaurant Name</label><input type="text" id="r2i_restaurantName" class="fi-text" placeholder="e.g. Cheese Corner"></div>
+      </div>
+      <div style="margin-bottom:1.25rem;">
+        <label class="field-label">Image Output</label>
+        <select id="r2i_resizeMode" class="fi">
+          <option value="resize" selected>Resize to 810×540 (GL standard)</option>
+          <option value="asis">Keep original size (as-is)</option>
+        </select>
+      </div>
+
+      <div id="r2i_Zone" class="upload-zone">
+        <div class="magic-wand" style="font-size:36px;margin-bottom:10px">🛵📄</div>
+        <p style="font-size:14px;font-weight:700;color:var(--org)">Click to choose a file, or drag it here</p>
+        <small style="font-size:11px;color:var(--t2)">.csv, .xlsx, or .xls</small>
+      </div>
+      <input type="file" id="r2i_fileInput" accept=".csv,.xlsx,.xls" style="display:none">
+      <div id="r2i_filepillWrap"></div>
+
+      <div class="r2i-colmap" id="r2i_colmap">
+        <div class="r2i-colmapfield"><label class="field-label">Sheet Tab</label><select id="r2i_sheetTab" class="fi"></select></div>
+        <div class="r2i-colmapfield"><label class="field-label">Header Row</label><select id="r2i_headerRow" class="fi"></select></div>
+        <div class="r2i-colmapfield"><label class="field-label">Item Name column</label><select id="r2i_nameCol" class="fi"></select></div>
+        <div class="r2i-colmapfield"><label class="field-label">Image URL column</label><select id="r2i_urlCol" class="fi"></select></div>
+      </div>
+
+      <div class="r2i-previewwrap" id="r2i_previewWrap">
+        <div class="r2i-tablewrap">
+          <table>
+            <thead><tr><th class="r2i-rownum">#</th><th>Item Name</th><th>Image URL</th></tr></thead>
+            <tbody id="r2i_previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="r2i_downloadPanel" style="display:none;margin-top:1.25rem;">
+        <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="r2i_downloadBtn">⬇ Download &amp; Rename All (ZIP)</button>
+            <span style="color:var(--t2);font-size:12px;" id="r2i_readyCount"></span>
+          </div>
+          <button class="btn" id="r2i_resetBtn">↺ Start Over</button>
+        </div>
+        <div style="color:var(--t2);font-size:12px;margin-top:10px;">If a direct download is blocked (CORS), the tool automatically retries through a public image proxy before marking it failed.</div>
+
+        <div id="r2i_ProgWrap" style="display:none;margin-top:16px;">
+          <div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="r2i_ProgBar" class="prog-bar-fill"></div></div><span id="r2i_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="r2i_ProgLbl" class="prog-file-name">Ready...</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="r2i_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="r2i_Fail">0</strong></span></div></div></div>
+        </div>
+      </div>
+
+      <div id="r2i_reportPanel" style="display:none;margin-top:1.25rem;">
+        <div class="r2i-stats">
+          <div class="r2i-stat total"><div class="r2i-num" id="r2i_statTotal">0</div><div class="r2i-lbl">Total</div></div>
+          <div class="r2i-stat ok"><div class="r2i-num" id="r2i_statOk">0</div><div class="r2i-lbl">Completed</div></div>
+          <div class="r2i-stat fail"><div class="r2i-num" id="r2i_statFail">0</div><div class="r2i-lbl">Failed</div></div>
+        </div>
+        <div class="r2i-reportlist" id="r2i_reportList"></div>
+      </div>
+
+      <div style="margin-top:1rem;font-size:10.5px;color:var(--t3);text-align:right;">🧡 Tool by Andro ss Youssef · Supervised by Samar Maher</div>
     </div>
   </div>
 
@@ -1892,6 +2003,377 @@ window.onload = function() {
           window.imglyRemoveBackground(c).catch(()=>{});
       }, 1000);
   }
+</script>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  var r2iWorkbook = null;
+  var r2iRawRows = [];
+  var r2iHeaders = [];
+  var r2iMappedData = [];
+
+  var dropzone = $('r2i_Zone');
+  var fileInput = $('r2i_fileInput');
+  var filepillWrap = $('r2i_filepillWrap');
+  var colmap = $('r2i_colmap');
+  var sheetTabSel = $('r2i_sheetTab');
+  var headerRowSel = $('r2i_headerRow');
+  var nameColSel = $('r2i_nameCol');
+  var urlColSel = $('r2i_urlCol');
+  var previewWrap = $('r2i_previewWrap');
+  var previewBody = $('r2i_previewBody');
+  var downloadPanel = $('r2i_downloadPanel');
+  var readyCount = $('r2i_readyCount');
+
+  function r2iEscapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  dropzone.addEventListener('click', function(){ fileInput.click(); });
+  dropzone.addEventListener('dragover', function(e){ e.preventDefault(); dropzone.classList.add('dragover'); });
+  dropzone.addEventListener('dragleave', function(){ dropzone.classList.remove('dragover'); });
+  dropzone.addEventListener('drop', function(e){
+    e.preventDefault(); dropzone.classList.remove('dragover');
+    if(e.dataTransfer.files.length) r2iHandleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function(e){
+    if(e.target.files.length) r2iHandleFile(e.target.files[0]);
+  });
+
+  function r2iHandleFile(file){
+    filepillWrap.innerHTML = '<div class="r2i-filepill">📄 ' + r2iEscapeHtml(file.name) + ' <span class="x" id="r2i_removeFile">✕</span></div>';
+    $('r2i_removeFile').addEventListener('click', r2iResetAll);
+
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var data = e.target.result;
+      try{
+        r2iWorkbook = XLSX.read(data, {type:'array'});
+      }catch(err){
+        alert('Could not read this file. Please upload a valid CSV or Excel file.');
+        return;
+      }
+      if(!r2iWorkbook.SheetNames.length){
+        alert('No sheets found in this file.');
+        return;
+      }
+      r2iPopulateSheetTabs();
+      colmap.classList.add('show');
+      r2iLoadSheet(0);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function r2iPopulateSheetTabs(){
+    sheetTabSel.innerHTML = r2iWorkbook.SheetNames
+      .map(function(name,i){ return '<option value="'+i+'">'+r2iEscapeHtml(name)+'</option>'; })
+      .join('');
+  }
+
+  sheetTabSel.addEventListener('change', function(){
+    r2iLoadSheet(parseInt(sheetTabSel.value, 10));
+  });
+
+  function r2iLoadSheet(sheetIndex){
+    var sheetName = r2iWorkbook.SheetNames[sheetIndex];
+    var sheet = r2iWorkbook.Sheets[sheetName];
+    r2iRawRows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:false, defval:''});
+
+    if(r2iRawRows.length < 1){
+      alert('This sheet appears to be empty.');
+      return;
+    }
+
+    headerRowSel.innerHTML = r2iRawRows.slice(0, Math.min(20, r2iRawRows.length)).map(function(r,i){
+      var preview = r.slice(0,4).map(function(c){ return String(c); }).join(' | ');
+      return '<option value="'+i+'">Row '+(i+1)+': '+r2iEscapeHtml(preview.slice(0,60))+'</option>';
+    }).join('');
+
+    headerRowSel.value = 0;
+    r2iApplyHeaderRow();
+  }
+
+  headerRowSel.addEventListener('change', r2iApplyHeaderRow);
+
+  function r2iApplyHeaderRow(){
+    var headerIdx = parseInt(headerRowSel.value, 10);
+    r2iHeaders = (r2iRawRows[headerIdx] || []).map(function(h){ return String(h).trim(); });
+    r2iPopulateColumnSelectors();
+    r2iGuessColumns();
+    r2iBuildPreview();
+  }
+
+  function r2iPopulateColumnSelectors(){
+    var opts = r2iHeaders.map(function(h,i){ return '<option value="'+i+'">'+r2iEscapeHtml(h || ('Column '+(i+1)))+'</option>'; }).join('');
+    nameColSel.innerHTML = opts;
+    urlColSel.innerHTML = opts;
+  }
+
+  function r2iGuessColumns(){
+    var nameIdx = r2iHeaders.findIndex(function(h){ return /item.?name|name|title/i.test(h); });
+    var urlIdx = r2iHeaders.findIndex(function(h){ return /url|link|image/i.test(h); });
+    if(nameIdx >= 0) nameColSel.value = nameIdx;
+    if(urlIdx >= 0) urlColSel.value = urlIdx;
+    else if(r2iHeaders.length > 1) urlColSel.value = 1;
+  }
+
+  [nameColSel, urlColSel].forEach(function(sel){ sel.addEventListener('change', r2iBuildPreview); });
+
+  function r2iBuildPreview(){
+    var headerIdx = parseInt(headerRowSel.value, 10);
+    var nameIdx = parseInt(nameColSel.value, 10);
+    var urlIdx = parseInt(urlColSel.value, 10);
+    var dataRows = r2iRawRows.slice(headerIdx + 1);
+
+    r2iMappedData = dataRows
+      .map(function(r){ return { name: String(r[nameIdx] != null ? r[nameIdx] : '').trim(), url: String(r[urlIdx] != null ? r[urlIdx] : '').trim() }; })
+      .filter(function(r){ return r.name && r.url; });
+
+    previewBody.innerHTML = r2iMappedData.slice(0,50).map(function(r,i){
+      return '<tr><td class="r2i-rownum">'+(i+1)+'</td><td>'+r2iEscapeHtml(r.name)+'</td><td>'+r2iEscapeHtml(r.url)+'</td></tr>';
+    }).join('');
+
+    previewWrap.classList.add('show');
+    downloadPanel.style.display = r2iMappedData.length ? 'block' : 'none';
+    readyCount.textContent = r2iMappedData.length
+      ? (r2iMappedData.length + ' item' + (r2iMappedData.length!==1?'s':'') + ' ready — ' + (dataRows.length-r2iMappedData.length) + ' skipped (missing name or url)')
+      : 'No valid rows found with the selected columns';
+  }
+
+  function r2iResetAll(){
+    r2iWorkbook = null; r2iRawRows = []; r2iHeaders = []; r2iMappedData = [];
+    fileInput.value = '';
+    filepillWrap.innerHTML = '';
+    colmap.classList.remove('show');
+    previewWrap.classList.remove('show');
+    downloadPanel.style.display = 'none';
+    $('r2i_reportPanel').style.display = 'none';
+    $('r2i_ProgWrap').style.display = 'none';
+    $('r2i_ProgBar').style.width = '0%';
+    $('r2i_caseId').value = '';
+    $('r2i_restaurantName').value = '';
+  }
+  $('r2i_resetBtn').addEventListener('click', r2iResetAll);
+
+  // ---- Download / rename logic ----
+  function r2iResizeAndCenterCrop(blob){
+    return new Promise(function(resolve, reject){
+      var TARGET_W = 810, TARGET_H = 540;
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function(){
+        try{
+          var canvas = document.createElement('canvas');
+          canvas.width = TARGET_W;
+          canvas.height = TARGET_H;
+          var ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, TARGET_W, TARGET_H);
+          var srcW = img.naturalWidth, srcH = img.naturalHeight;
+          var scale = Math.max(TARGET_W / srcW, TARGET_H / srcH);
+          var drawW = srcW * scale;
+          var drawH = srcH * scale;
+          var dx = (TARGET_W - drawW) / 2;
+          var dy = (TARGET_H - drawH) / 2;
+          ctx.drawImage(img, dx, dy, drawW, drawH);
+          URL.revokeObjectURL(url);
+          canvas.toBlob(function(outBlob){
+            if(outBlob) resolve(outBlob);
+            else reject(new Error('Could not encode resized JPG'));
+          }, 'image/jpeg', 0.9);
+        }catch(err){
+          URL.revokeObjectURL(url);
+          reject(err);
+        }
+      };
+      img.onerror = function(){
+        URL.revokeObjectURL(url);
+        reject(new Error('Image failed to load into canvas (possibly corrupt or unsupported format)'));
+      };
+      img.src = url;
+    });
+  }
+
+  function r2iSanitizeFilename(name){
+    return name
+      .replace(/[\\\/:*?"<>|]/g,'')
+      .replace(/\s+/g,' ')
+      .trim()
+      .slice(0,120) || 'untitled';
+  }
+
+  function r2iExtFromUrlOrType(url, contentType){
+    var map = {'image/jpeg':'jpg','image/jpg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/svg+xml':'svg','image/bmp':'bmp'};
+    if(contentType){
+      var ct = contentType.split(';')[0].trim().toLowerCase();
+      if(map[ct]) return map[ct];
+    }
+    try{
+      var clean = url.split('?')[0].split('#')[0];
+      var m = clean.match(/\.([a-zA-Z0-9]{2,5})$/);
+      if(m) return m[1].toLowerCase();
+    }catch(e){}
+    return 'jpg';
+  }
+
+  function r2iProxyUrls(url){
+    var noScheme = url.replace(/^https?:\/\//, '');
+    return [
+      'https://images.weserv.nl/?url=' + encodeURIComponent(noScheme),
+      'https://corsproxy.io/?' + encodeURIComponent(url)
+    ];
+  }
+
+  function r2iFetchImageWithFallback(url){
+    return fetch(url, {mode:'cors'}).then(function(res){
+      if(res.ok){
+        return res.blob().then(function(blob){
+          if(blob.type.indexOf('image/') === 0 || blob.size > 100){
+            return {blob: blob, via:'direct'};
+          }
+          return r2iTryProxies(url);
+        });
+      }
+      return r2iTryProxies(url);
+    }).catch(function(){
+      return r2iTryProxies(url);
+    });
+  }
+
+  function r2iTryProxies(url){
+    var proxies = r2iProxyUrls(url);
+    var attempt = function(idx){
+      if(idx >= proxies.length){
+        return Promise.reject(new Error('Blocked by CORS / unreachable (direct + proxy both failed)'));
+      }
+      return fetch(proxies[idx], {mode:'cors'}).then(function(res){
+        if(!res.ok) return attempt(idx+1);
+        return res.blob().then(function(blob){
+          if(blob.type.indexOf('image/') === 0 || blob.size > 1000){
+            return {blob: blob, via:'proxy'};
+          }
+          return attempt(idx+1);
+        });
+      }).catch(function(){ return attempt(idx+1); });
+    };
+    return attempt(0);
+  }
+
+  var downloadBtn = $('r2i_downloadBtn');
+  var progressWrap = $('r2i_ProgWrap');
+  var progressFill = $('r2i_ProgBar');
+  var progressText = $('r2i_ProgLbl');
+  var progressPct = $('r2i_ProgPct');
+  var reportPanel = $('r2i_reportPanel');
+  var reportList = $('r2i_reportList');
+  var statTotal = $('r2i_statTotal');
+  var statOk = $('r2i_statOk');
+  var statFail = $('r2i_statFail');
+  var doneCounter = $('r2i_Done');
+  var failCounter = $('r2i_Fail');
+
+  downloadBtn.addEventListener('click', function(){
+    var rows = r2iMappedData;
+    if(rows.length===0){
+      alert('No valid rows to process.');
+      return;
+    }
+
+    var caseId = $('r2i_caseId').value.trim();
+    var restaurantName = $('r2i_restaurantName').value.trim();
+    if(!caseId || !restaurantName){
+      alert('Please fill in both Case ID and Restaurant Name before downloading.');
+      return;
+    }
+    var folderBase = r2iSanitizeFilename(caseId + '_' + restaurantName);
+
+    downloadBtn.disabled = true;
+    progressWrap.style.display = 'block';
+    reportPanel.style.display = 'block';
+    reportList.innerHTML = '';
+    var okCount = 0, failCount = 0;
+    var usedNames = {};
+    var zip = new JSZip();
+    var folder = zip.folder(folderBase);
+
+    var processRow = function(i){
+      if(i >= rows.length){
+        progressFill.style.width = '100%';
+        progressPct.textContent = '100%';
+        progressText.textContent = 'Done — ' + okCount + ' completed, ' + failCount + ' failed';
+
+        var finish = function(){ downloadBtn.disabled = false; };
+        if(okCount > 0){
+          zip.generateAsync({type:'blob'}).then(function(content){
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(content);
+            a.download = folderBase + '.zip';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            finish();
+          });
+        } else {
+          finish();
+        }
+        return;
+      }
+
+      var name = rows[i].name, url = rows[i].url;
+      var modeLabel = $('r2i_resizeMode').value === 'resize' ? 'Downloading & resizing' : 'Downloading';
+      progressText.textContent = modeLabel + ' "' + name + '"…';
+      var pct = Math.round((i/rows.length)*100);
+      progressFill.style.width = pct+'%';
+      progressPct.textContent = pct+'%';
+
+      r2iFetchImageWithFallback(url).then(function(result){
+        var resizeMode = $('r2i_resizeMode').value;
+        var doEncode = resizeMode === 'resize'
+          ? r2iResizeAndCenterCrop(result.blob).then(function(outBlob){ return {outBlob: outBlob, ext: 'jpg'}; })
+          : Promise.resolve({outBlob: result.blob, ext: r2iExtFromUrlOrType(url, result.blob.type)});
+
+        return doEncode.then(function(enc){
+          var base = r2iSanitizeFilename(name);
+          var filename = base + '.' + enc.ext;
+          if(usedNames[filename] !== undefined){
+            usedNames[filename]++;
+            filename = base + '_' + usedNames[filename] + '.' + enc.ext;
+          } else {
+            usedNames[filename] = 0;
+          }
+          folder.file(filename, enc.outBlob);
+          okCount++;
+          r2iAddReportRow(name, true, result.via === 'proxy' ? filename + ' (via proxy)' : filename);
+        });
+      }).catch(function(err){
+        failCount++;
+        r2iAddReportRow(name, false, (err && err.message) || 'Failed to fetch');
+      }).then(function(){
+        statTotal.textContent = rows.length;
+        statOk.textContent = okCount;
+        statFail.textContent = failCount;
+        doneCounter.textContent = okCount;
+        failCounter.textContent = failCount;
+        processRow(i+1);
+      });
+    };
+
+    processRow(0);
+  });
+
+  function r2iAddReportRow(name, ok, msg){
+    var div = document.createElement('div');
+    div.className = 'r2i-reportrow ' + (ok ? 'ok' : 'fail');
+    div.innerHTML =
+      '<span class="r2i-dot ' + (ok?'ok':'fail') + '"></span>' +
+      '<span class="r2i-rname">' + r2iEscapeHtml(name) + '</span>' +
+      '<span class="r2i-rmsg">' + (ok ? '✓ '+r2iEscapeHtml(msg) : '✕ '+r2iEscapeHtml(msg)) + '</span>';
+    reportList.appendChild(div);
+    reportList.scrollTop = reportList.scrollHeight;
+  }
+})();
 </script>
 
 </body>
