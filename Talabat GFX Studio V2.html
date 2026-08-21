@@ -650,7 +650,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         <div style="margin-left:auto;display:flex;gap:8px"><button id="img_SelectAllBtn" class="btn" style="padding:6px 12px;font-size:11px">☑ All</button><button id="img_SelectNoneBtn" class="btn" style="padding:6px 12px;font-size:11px">☐ None</button><button id="img_ClearBtn" class="btn btn-stop" style="padding:6px 12px;font-size:11px">✕ Clear</button></div>
       </div>
       <div class="settings-grid">
-        <div><label class="field-label">Fit mode</label><select id="img_Fit" class="fi"><option value="smart" selected>🤖 Smart Auto</option><option value="fit">Fit</option><option value="fill">Fill</option></select></div>
+        <div><label class="field-label">Fit mode</label><div style="display:flex;gap:6px"><select id="img_Fit" class="fi" style="flex:1"><option value="smart" selected>🤖 Smart Auto</option><option value="fit">Fit</option><option value="fill">Fill</option></select><button id="img_ApplyAllFit" type="button" class="btn" title="Apply this mode to all loaded images (per-image override still works)" style="padding:9px 10px;font-size:11px;white-space:nowrap">⇩ All</button></div></div>
         <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
         <div><label class="field-label">Quality: <span id="img_QVal">100%</span></label><input type="range" id="img_Quality" min="70" max="100" value="100" style="width:100%;accent-color:var(--org)"></div>
         <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="img_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
@@ -1395,6 +1395,20 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('SelCount').textContent = `(${count} selected)`;
         getEl('StartBtn').disabled = (count === 0);
         getEl('StartBtn').style.opacity = (count === 0) ? '0.35' : '1';
+    }
+
+    if (getEl('ApplyAllFit')) {
+        getEl('ApplyAllFit').addEventListener('click', () => {
+            var v = getEl('Fit').value;
+            brFiles.forEach((f, idx) => {
+                brFitModes[idx] = v;
+                delete brPreviewSrcCache[idx];
+                Object.keys(brPreviewResultCache).forEach(function(k) {
+                    if (k.startsWith(idx + '::')) delete brPreviewResultCache[k];
+                });
+            });
+            renderGrid();
+        });
     }
 
     getEl('SelectAllBtn').addEventListener('click', () => {
