@@ -10,9 +10,98 @@
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 
-<script type="module">
-  import { removeBackground } from "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm";
-  window.imglyRemoveBackground = removeBackground;
+<script>
+(function(){
+  // Fast, local, non-AI background remover (edge flood-fill / chroma-key style).
+  // Same call signature as the previous AI remover: pass a File/Blob/Canvas,
+  // get back a Promise<Blob> (PNG with the background made transparent).
+  function getPixel(data, w, x, y) {
+    const p = (y * w + x) * 4;
+    return [data[p], data[p + 1], data[p + 2]];
+  }
+  function colorDist(r, g, b, bg) {
+    const dr = r - bg[0], dg = g - bg[1], db = b - bg[2];
+    return Math.sqrt(dr * dr + dg * dg + db * db);
+  }
+  function modeColor(samples) {
+    const buckets = {};
+    let best = null, bestCount = 0;
+    for (const c of samples) {
+      const key = (c[0] >> 3) + ',' + (c[1] >> 3) + ',' + (c[2] >> 3);
+      if (!buckets[key]) buckets[key] = { sum: [0, 0, 0], count: 0 };
+      buckets[key].sum[0] += c[0]; buckets[key].sum[1] += c[1]; buckets[key].sum[2] += c[2];
+      buckets[key].count++;
+      if (buckets[key].count > bestCount) { bestCount = buckets[key].count; best = key; }
+    }
+    const b = buckets[best];
+    return [Math.round(b.sum[0] / b.count), Math.round(b.sum[1] / b.count), Math.round(b.sum[2] / b.count)];
+  }
+  function processCanvasBg(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
+
+    const samples = [];
+    const step = Math.max(1, Math.floor(Math.min(w, h) / 50));
+    for (let x = 0; x < w; x += step) { samples.push(getPixel(data, w, x, 0)); samples.push(getPixel(data, w, x, h - 1)); }
+    for (let y = 0; y < h; y += step) { samples.push(getPixel(data, w, 0, y)); samples.push(getPixel(data, w, w - 1, y)); }
+    const bg = modeColor(samples);
+
+    const tolerance = 32, feather = 40;
+    const visited = new Uint8Array(w * h);
+    const stack = [];
+    for (let x = 0; x < w; x++) { stack.push(x, 0); stack.push(x, h - 1); }
+    for (let y = 0; y < h; y++) { stack.push(0, y); stack.push(w - 1, y); }
+
+    while (stack.length) {
+      const y = stack.pop(), x = stack.pop();
+      if (x < 0 || x >= w || y < 0 || y >= h) continue;
+      const idx = y * w + x;
+      if (visited[idx]) continue;
+      visited[idx] = 1;
+      const p = idx * 4;
+      const dist = colorDist(data[p], data[p + 1], data[p + 2], bg);
+      if (dist <= tolerance + feather) {
+        if (dist <= tolerance) {
+          data[p + 3] = 0;
+        } else {
+          const alpha = Math.round(255 * (dist - tolerance) / feather);
+          data[p + 3] = Math.min(data[p + 3], alpha);
+        }
+        stack.push(x + 1, y); stack.push(x - 1, y);
+        stack.push(x, y + 1); stack.push(x, y - 1);
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+  }
+  function fastRemoveBackground(input) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (input instanceof HTMLCanvasElement) {
+          processCanvasBg(input);
+          input.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Background removal failed')), 'image/png', 1.0);
+          return;
+        }
+        const url = URL.createObjectURL(input);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          processCanvasBg(canvas);
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Background removal failed')), 'image/png', 1.0);
+        };
+        img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+        img.src = url;
+      } catch (e) { reject(e); }
+    });
+  }
+  window.imglyRemoveBackground = fastRemoveBackground;
+})();
 </script>
 
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -1785,10 +1874,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         var filesToProcess = brFiles.map((f, i) => brSelected[i] ? {file:f, origIdx:i} : null).filter(Boolean);
         if(!filesToProcess.length || brRunning) return;
         var doBgRm = getEl('BgRm') && getEl('BgRm').checked;
-        if (doBgRm && !window.imglyRemoveBackground) {
-            brShowToast('AI module is loading. Please wait.', 'error');
-            return;
-        }
         brRunning=true;
         brStopped=false;
         getEl('StartBtn').disabled=true;
@@ -2039,17 +2124,6 @@ window.onload = function() {
     createResizerTool('cov', 750, 300, 1);
     createResizerTool('img', 810, 540);
 };
-</script>
-
-<script>
-  if (window.imglyRemoveBackground) {
-      setTimeout(() => {
-          const c = document.createElement('canvas');
-          c.width = 1;
-          c.height = 1;
-          window.imglyRemoveBackground(c).catch(()=>{});
-      }, 1000);
-  }
 </script>
 
 <script>
