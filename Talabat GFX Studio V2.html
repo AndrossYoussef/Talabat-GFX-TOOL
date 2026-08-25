@@ -1185,6 +1185,19 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     var processedBlobs = [];
     var brSearchTerm = '';
 
+    function revokeResultCacheEntry(k) {
+        try { URL.revokeObjectURL(brPreviewResultCache[k]); } catch(e) {}
+        delete brPreviewResultCache[k];
+    }
+    function revokeResultCacheForIdx(idx) {
+        Object.keys(brPreviewResultCache).forEach(function(k) {
+            if (k.startsWith(idx + '::')) revokeResultCacheEntry(k);
+        });
+    }
+    function revokeResultCacheAll() {
+        Object.keys(brPreviewResultCache).forEach(revokeResultCacheEntry);
+    }
+
     function loadSettings() {
         const saved = localStorage.getItem('talabat_' + toolPrefix);
         if (!saved) return;
@@ -1289,6 +1302,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         brRejected = new Array(brFiles.length).fill(false);
         brCrops = {};
         brFitModes = {};
+        revokeResultCacheAll();
         brPreviewSrcCache = {};
         brPreviewResultCache = {};
         getEl('Count').textContent = brFiles.length;
@@ -1299,6 +1313,37 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('Fail').textContent = '0';
         updateSelectedCount();
         renderGrid();
+
+        if (processedFiles.length > 1000) {
+            brShowToast(`Only the first 1000 of ${processedFiles.length} files were loaded (batch limit).`, 'warning');
+        } else if (brFiles.length > 200) {
+            brShowToast(`Loaded ${brFiles.length} files — large batches may take a while and use more memory.`, 'warning');
+        }
+        checkTinyImages(brFiles, targetW, targetH);
+    }
+
+    async function checkTinyImages(files, targetW, targetH) {
+        var UPSCALE_WARN_FACTOR = 2; // flag images that need to be blown up more than 2x to fill the target
+        var tinyCount = 0;
+        await Promise.all(files.map(function(file) {
+            return new Promise(function(resolve) {
+                var url = URL.createObjectURL(file);
+                var img = new Image();
+                img.onload = function() {
+                    URL.revokeObjectURL(url);
+                    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                        var scale = Math.min(targetW / img.naturalWidth, targetH / img.naturalHeight);
+                        if (scale > UPSCALE_WARN_FACTOR) tinyCount++;
+                    }
+                    resolve();
+                };
+                img.onerror = function() { URL.revokeObjectURL(url); resolve(); };
+                img.src = url;
+            });
+        }));
+        if (tinyCount > 0) {
+            brShowToast(`⚠️ ${tinyCount} image${tinyCount > 1 ? 's are' : ' is'} much smaller than ${targetW}×${targetH} and may look pixelated once resized.`, 'warning');
+        }
     }
 
     function renderGrid() {
@@ -1362,9 +1407,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                 e.stopPropagation();
                 brFitModes[idx] = this.value;
                 delete brPreviewSrcCache[idx];
-                Object.keys(brPreviewResultCache).forEach(function(k) {
-                    if (k.startsWith(idx + '::')) delete brPreviewResultCache[k];
-                });
+                revokeResultCacheForIdx(idx);
             };
 
             if (brThumbCache.has(file)) {
@@ -1433,9 +1476,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                     [brFitModes[fromIdx], brFitModes[toIdx]] = [brFitModes[toIdx], brFitModes[fromIdx]];
                     delete brPreviewSrcCache[fromIdx];
                     delete brPreviewSrcCache[toIdx];
-                    Object.keys(brPreviewResultCache).forEach(k => {
-                        if (k.startsWith(fromIdx + '::') || k.startsWith(toIdx + '::')) delete brPreviewResultCache[k];
-                    });
+                    revokeResultCacheForIdx(fromIdx);
+                    revokeResultCacheForIdx(toIdx);
                     renderGrid();
                 }
             });
@@ -1500,9 +1542,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             brFiles.forEach((f, idx) => {
                 brFitModes[idx] = v;
                 delete brPreviewSrcCache[idx];
-                Object.keys(brPreviewResultCache).forEach(function(k) {
-                    if (k.startsWith(idx + '::')) delete brPreviewResultCache[k];
-                });
+                revokeResultCacheForIdx(idx);
             });
             renderGrid();
         });
@@ -1538,6 +1578,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         brRejected=[];
         brCrops={};
         brFitModes={};
+        revokeResultCacheAll();
         brPreviewSrcCache={};
         brPreviewResultCache={};
         processedBlobs=[];
@@ -1995,6 +2036,22 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     });
 }
 
+function isWholeImageWhiteBg(data, w, h) {
+    // Samples across the full frame (not just the border) to check whether the
+    // entire photo — not merely its edges/padding — sits on a white background.
+    var whiteCount = 0, total = 0;
+    var stepX = Math.max(1, Math.floor(w / 60));
+    var stepY = Math.max(1, Math.floor(h / 60));
+    for (var y = 0; y < h; y += stepY) {
+        for (var x = 0; x < w; x += stepX) {
+            var i = (y * w + x) * 4;
+            if (data[i] > 235 && data[i + 1] > 235 && data[i + 2] > 235) whiteCount++;
+            total++;
+        }
+    }
+    return total > 0 && (whiteCount / total) > 0.6;
+}
+
 function suggestFitMode(canvas, nw, nh, targetW, targetH, availableModes, toolPrefix) {
     var containScale = Math.min(targetW / nw, targetH / nh);
     var coverScale = Math.max(targetW / nw, targetH / nh);
@@ -2015,8 +2072,8 @@ function suggestFitMode(canvas, nw, nh, targetW, targetH, availableModes, toolPr
     var closeCount = samples.filter(function(s) { return Math.abs(s[0]-avg[0]) + Math.abs(s[1]-avg[1]) + Math.abs(s[2]-avg[2]) < 45; }).length;
     var isUniform = (closeCount / samples.length) > 0.65;
 
-    // Menu images: a detected white background should snap straight to FIT.
-    if (toolPrefix === 'img' && isWhiteBg && availableModes.indexOf('fit') >= 0) return 'fit';
+    // Menu images: only snap to FIT when the WHOLE photo is on white (not just white edges/padding).
+    if (toolPrefix === 'img' && availableModes.indexOf('fit') >= 0 && isWholeImageWhiteBg(data, w, h)) return 'fit';
 
     var preferred;
     if (paddingRatio > 0.35) preferred = ['fill', 'smart'];
