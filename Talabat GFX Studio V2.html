@@ -277,6 +277,15 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
 <script id="workerScript" type="javascript/worker">
     let CURRENT_QUALITY = 1.0;
     function createCanvas(w, h) { return new OffscreenCanvas(w, h); }
+    function bgHex(bg) {
+        switch (bg) {
+            case 'black': return '#000000';
+            case 'lightgray': return '#D9D9D9';
+            case 'mediumgray': return '#A6A6A6';
+            case 'darkgray': return '#404040';
+            default: return '#FFFFFF';
+        }
+    }
     
     function hqDownscale(srcCanvas, targetW, targetH) {
         var canvas = srcCanvas, curW = canvas.width, curH = canvas.height;
@@ -324,7 +333,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     function containResize(srcCanvas, W, H, bg) {
         var canvas = createCanvas(W, H), ctx = canvas.getContext('2d');
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        if (bg !== 'transparent') { ctx.fillStyle = (bg === 'black' ? '#000' : '#FFF'); ctx.fillRect(0, 0, W, H); }
+        if (bg !== 'transparent') { ctx.fillStyle = bgHex(bg); ctx.fillRect(0, 0, W, H); }
         var scale = Math.min(W / srcCanvas.width, H / srcCanvas.height);
         var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
         ctx.drawImage(hqDownscale(srcCanvas, dw, dh), Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
@@ -334,7 +343,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     function coverResize(srcCanvas, W, H, bg) {
         var canvas = createCanvas(W, H), ctx = canvas.getContext('2d');
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-        if (bg !== 'transparent') { ctx.fillStyle = (bg === 'black' ? '#000' : '#FFF'); ctx.fillRect(0, 0, W, H); }
+        if (bg !== 'transparent') { ctx.fillStyle = bgHex(bg); ctx.fillRect(0, 0, W, H); }
         var scale = Math.max(W / srcCanvas.width, H / srcCanvas.height);
         var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
         ctx.drawImage(hqDownscale(srcCanvas, dw, dh), Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
@@ -347,7 +356,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         var scale = Math.max(W / srcCanvas.width, H / srcCanvas.height), containScale = Math.min(W / srcCanvas.width, H / srcCanvas.height);
         var isExtremeCrop = scale > (containScale * 1.05), edgeType = isExtremeCrop ? isEdgeUniform(srcCanvas) : null;
         if (edgeType === 'transparent') {
-            if (bg !== 'transparent') { ctx.fillStyle = (bg === 'black' ? '#000' : '#FFF'); ctx.fillRect(0, 0, W, H); }
+            if (bg !== 'transparent') { ctx.fillStyle = bgHex(bg); ctx.fillRect(0, 0, W, H); }
             scale = containScale;
             var dw = Math.round(srcCanvas.width * scale), dh = Math.round(srcCanvas.height * scale);
             ctx.drawImage(hqDownscale(srcCanvas, dw, dh), Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
@@ -358,7 +367,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             if (dx > 0) { ctx.drawImage(canvas, dx + 2, dy, 1, dh, 0, dy, dx, dh); ctx.drawImage(canvas, dx + dw - 3, dy, 1, dh, dx + dw, dy, dx, dh); }
             if (dy > 0) { ctx.drawImage(canvas, dx, dy + 2, dw, 1, dx, 0, dw, dy); ctx.drawImage(canvas, dx, dy + dh - 3, dw, 1, dx, dy + dh, dw, dy); }
         } else {
-            if (bg !== 'transparent') { ctx.fillStyle = (bg === 'black' ? '#000' : '#FFF'); ctx.fillRect(0, 0, W, H); }
+            if (bg !== 'transparent') { ctx.fillStyle = bgHex(bg); ctx.fillRect(0, 0, W, H); }
             var dw = Math.round(srcCanvas.width * containScale), dh = Math.round(srcCanvas.height * containScale);
             ctx.drawImage(hqDownscale(srcCanvas, dw, dh), Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
         }
@@ -468,8 +477,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       var dw = Math.round(sw*scale), dh = Math.round(sh*scale), dx = Math.min(0, Math.max(W-dw, Math.round(W/2 - subX*scale))), dy = Math.min(0, Math.max(H-dh, Math.round(H/2 - subY*scale)));
       var canvas = createCanvas(W, H), octx = canvas.getContext('2d');
       octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
-      if (bg === 'white') { octx.fillStyle = '#FFF'; octx.fillRect(0, 0, W, H); }
-      else if (bg === 'black') { octx.fillStyle = '#000'; octx.fillRect(0, 0, W, H); }
+      if (bg !== 'transparent') { octx.fillStyle = bgHex(bg); octx.fillRect(0, 0, W, H); }
       octx.drawImage(srcCanvas, dx, dy, dw, dh);
       return canvas;
     }
@@ -484,7 +492,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
          return canvas;
       }
       if (bgType === 'white') {
-         var flatBg = bg === 'black' ? 'rgb(0,0,0)' : 'rgb(255,255,255)';
+         var flatBg = bgHex(bg);
          flattenBackgroundToColor(stripped, flatBg, 40);
          return fitOnBg(stripped, W, H, flatBg);
       } else if (bgType === 'solid') {
@@ -497,9 +505,10 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             // into a thin strip. Crop into the subject instead of padding around it.
             return smartSceneCrop(stripped, W, H, bg);
          }
-         if (bg === 'black') {
-            flattenBackgroundToColor(stripped, 'rgb(0,0,0)', 45);
-            return fitOnBg(stripped, W, H, 'rgb(0,0,0)');
+         if (bg !== 'white') {
+            var solidHex = bgHex(bg);
+            flattenBackgroundToColor(stripped, solidHex, 45);
+            return fitOnBg(stripped, W, H, solidHex);
          }
          var ctx2 = stripped.getContext('2d'), d2 = ctx2.getImageData(0,0,stripped.width,stripped.height).data;
          var eR=d2[0], eG=d2[1], eB=d2[2], maxC=Math.max(eR,eG,eB), minC=Math.min(eR,eG,eB), saturation=maxC>0 ? (maxC-minC)/maxC : 0;
@@ -671,15 +680,15 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         </div>
         <div class="settings-grid">
           <div><label class="field-label">Fit mode</label><select id="logo_Fit" class="fi"><option value="fit">Fit</option><option value="auto">Auto-Extend</option><option value="fill">Fill</option></select></div>
-          <div><label class="field-label">Background</label><select id="logo_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
+          <div><label class="field-label">Background</label><select id="logo_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
           <div><label class="field-label">Quality</label><div style="padding:10px 14px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);font-size:12px;font-weight:700;color:var(--org);display:flex;align-items:center;gap:6px;">🏆 Max Quality (Locked)</div></div>
           <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="logo_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
         </div>
         <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
           <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
           <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="logo_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="logo_SCurve" style="accent-color:var(--org)"> 🎬 S-Curve Contrast</label>
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="logo_Defringe" style="accent-color:var(--org)"> 🧽 Defringe Edges</label>
+          
+          
         </div>
         <div id="logo_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="logo_ProgBar" class="prog-bar-fill"></div></div><span id="logo_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="logo_ProgLbl" class="prog-file-name">Ready...</span><span id="logo_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span></div></div></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
@@ -703,15 +712,15 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         </div>
         <div class="settings-grid">
           <div><label class="field-label">Fit mode</label><select id="cov_Fit" class="fi"><option value="auto">Auto-Extend</option><option value="fill">Fill</option><option value="fit">Fit</option></select></div>
-          <div><label class="field-label">Background</label><select id="cov_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
+          <div><label class="field-label">Background</label><select id="cov_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
           <div><label class="field-label">Quality</label><div style="padding:10px 14px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);font-size:12px;font-weight:700;color:var(--org);display:flex;align-items:center;gap:6px;">🏆 Max Quality (Locked)</div></div>
           <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="cov_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
         </div>
         <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
           <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
           <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="cov_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="cov_SCurve" style="accent-color:var(--org)"> 🎬 S-Curve Contrast</label>
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="cov_Defringe" style="accent-color:var(--org)"> 🧽 Defringe Edges</label>
+          
+          
         </div>
         <div id="cov_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="cov_ProgBar" class="prog-bar-fill"></div></div><span id="cov_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="cov_ProgLbl" class="prog-file-name">Ready...</span><span id="cov_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span></div></div></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
@@ -736,15 +745,15 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       </div>
       <div class="settings-grid">
         <div><label class="field-label">Fit mode</label><div style="display:flex;gap:6px"><select id="img_Fit" class="fi" style="flex:1"><option value="smart" selected>🤖 Smart Auto</option><option value="fit">Fit</option><option value="fill">Fill</option></select><button id="img_ApplyAllFit" type="button" class="btn" title="Apply this mode to all loaded images (per-image override still works)" style="padding:9px 10px;font-size:11px;white-space:nowrap">⇩ All</button></div></div>
-        <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
+        <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
         <div><label class="field-label">Quality: <span id="img_QVal">100%</span></label><input type="range" id="img_Quality" min="70" max="100" value="100" style="width:100%;accent-color:var(--org)"></div>
         <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="img_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
       </div>
       <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
         <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
         <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="img_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
-        <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="img_SCurve" style="accent-color:var(--org)"> 🎬 S-Curve Contrast</label>
-        <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="img_Defringe" style="accent-color:var(--org)"> 🧽 Defringe Edges</label>
+        
+        
       </div>
       <div id="img_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="img_ProgBar" class="prog-bar-fill"></div></div><span id="img_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="img_ProgLbl" class="prog-file-name">Ready...</span><span id="img_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span></div></div></div></div>
       <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
@@ -1184,20 +1193,18 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         if(s.quality && getEl('Quality')) { getEl('Quality').value = s.quality; getEl('QVal').textContent = s.quality + '%'; }
         if(s.bgRm !== undefined) getEl('BgRm').checked = s.bgRm;
         if(s.enhance !== undefined) getEl('Enhance').checked = s.enhance;
-        if(s.scurve !== undefined) getEl('SCurve').checked = s.scurve;
-        if(s.defringe !== undefined) getEl('Defringe').checked = s.defringe;
     }
 
     function saveSettings() {
         const settings = {
             fit: getEl('Fit').value, bg: getEl('Bg').value, quality: getEl('Quality') ? getEl('Quality').value : (forcedQuality*100), bgRm: getEl('BgRm').checked,
-            enhance: getEl('Enhance').checked, scurve: getEl('SCurve').checked, defringe: getEl('Defringe').checked
+            enhance: getEl('Enhance').checked
         };
         localStorage.setItem('talabat_' + toolPrefix, JSON.stringify(settings));
     }
 
     loadSettings();
-    ['Fit', 'Bg', 'Quality', 'BgRm', 'Enhance', 'SCurve', 'Defringe'].forEach(id => {
+    ['Fit', 'Bg', 'Quality', 'BgRm', 'Enhance'].forEach(id => {
         const el = getEl(id);
         if(el) el.addEventListener('change', saveSettings);
     });
@@ -1810,7 +1817,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         var bg = getEl('Bg').value, defaultFitMode = getEl('Fit').value;
         var quality = getEl('Quality') ? parseInt(getEl('Quality').value) / 100 : forcedQuality;
         var isLockedQualityTool = !getEl('Quality');
-        var enhance = getEl('Enhance').checked, scurve = getEl('SCurve').checked, defringe = getEl('Defringe').checked;
+        var enhance = getEl('Enhance').checked, scurve = false, defringe = doBgRm;
 
         var total=filesToProcess.length, done=0, failed=0, zip=new JSZip(), singleBlob=null, singleName=null, usedNames={};
         var startTime = Date.now(), completedItems = 0;
