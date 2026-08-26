@@ -63,26 +63,43 @@
 
     // 2. Cheap 4-neighbor gradient magnitude, used to detect edges/silhouette
     //    boundaries so the fill doesn't cross them even when colors are close.
+    //    Computed off a lightly box-blurred luminance buffer (not the actual pixel
+    //    data) so JPEG grain and shadow texture on the background don't get
+    //    mistaken for real subject edges and fragment the fill into noise.
     const gray = new Float32Array(w * h);
     for (let i = 0, p = 0; i < w * h; i++, p += 4) {
       gray[i] = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+    }
+    const graySmooth = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let sum = 0, count = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          const ny = y + dy; if (ny < 0 || ny >= h) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx; if (nx < 0 || nx >= w) continue;
+            sum += gray[ny * w + nx]; count++;
+          }
+        }
+        graySmooth[y * w + x] = sum / count;
+      }
     }
     const edge = new Float32Array(w * h);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = y * w + x;
-        const gx = x > 0 ? gray[i] - gray[i - 1] : 0;
-        const gx2 = x < w - 1 ? gray[i + 1] - gray[i] : 0;
-        const gy = y > 0 ? gray[i] - gray[i - w] : 0;
-        const gy2 = y < h - 1 ? gray[i + w] - gray[i] : 0;
+        const gx = x > 0 ? graySmooth[i] - graySmooth[i - 1] : 0;
+        const gx2 = x < w - 1 ? graySmooth[i + 1] - graySmooth[i] : 0;
+        const gy = y > 0 ? graySmooth[i] - graySmooth[i - w] : 0;
+        const gy2 = y < h - 1 ? graySmooth[i + w] - graySmooth[i] : 0;
         edge[i] = Math.max(Math.abs(gx), Math.abs(gx2), Math.abs(gy), Math.abs(gy2));
       }
     }
 
     // 3. Flood fill from the border, gated by local color continuity + no strong
     //    local edge + a looser global cap vs. the sampled background color.
-    const localTol = 14;     // max color step allowed between adjacent pixels
-    const edgeTol = 16;      // max gradient magnitude allowed to cross
+    const localTol = 16;     // max color step allowed between adjacent pixels
+    const edgeTol = 18;      // max gradient magnitude allowed to cross
     const globalTol = 55;    // max total drift from the sampled bg color
     const feather = 12;      // soft anti-alias band at the very boundary
 
@@ -118,6 +135,54 @@
         }
       }
     }
+
+    // 4. Despeckle pass: on grainy/shadowed backgrounds, a few pixels here and there
+    //    can get wrongly "blocked" mid-fill, leaving tiny opaque noise specks stranded
+    //    inside an otherwise-removed background. Any small blocked island that doesn't
+    //    touch the image border gets reclassified as background too.
+    const SPECK_MAX = Math.max(24, Math.round(w * h * 0.00015));
+    const compVisited = new Uint8Array(w * h);
+    const qx = new Int32Array(w * h), qy = new Int32Array(w * h);
+    for (let sy = 0; sy < h; sy++) {
+      for (let sx = 0; sx < w; sx++) {
+        const sIdx = sy * w + sx;
+        if (visited[sIdx] !== 2 || compVisited[sIdx]) continue;
+        let qhead = 0, qtail = 0;
+        qx[qtail] = sx; qy[qtail] = sy; qtail++;
+        compVisited[sIdx] = 1;
+        const members = [sIdx];
+        let touchesBorder = (sx === 0 || sy === 0 || sx === w - 1 || sy === h - 1);
+        while (qhead < qtail) {
+          const cx = qx[qhead], cy = qy[qhead]; qhead++;
+          const dirs = [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
+          for (const [nx, ny] of dirs) {
+            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+            const nIdx = ny * w + nx;
+            if (visited[nIdx] !== 2 || compVisited[nIdx]) continue;
+            compVisited[nIdx] = 1;
+            members.push(nIdx);
+            if (nx === 0 || ny === 0 || nx === w - 1 || ny === h - 1) touchesBorder = true;
+            qx[qtail] = nx; qy[qtail] = ny; qtail++;
+          }
+        }
+        if (!touchesBorder && members.length <= SPECK_MAX) {
+          for (const m of members) data[m * 4 + 3] = 0;
+        }
+      }
+    }
+
+    // 5. Safety net: if the fill ate away almost the entire frame (a sign the subject's
+    //    tones were too close to the background for this method), bail out and hand back
+    //    the untouched original instead of a ruined near-blank image.
+    let removedCount = 0;
+    for (let i = 0; i < w * h; i++) { if (data[i * 4 + 3] < 200) removedCount++; }
+    if (removedCount > w * h * 0.94) {
+      for (let i = 0; i < w * h; i++) data[i * 4 + 3] = 255;
+      ctx.putImageData(imageData, 0, 0);
+      canvas.__bgRemovalSkipped = true;
+      return canvas;
+    }
+
     ctx.putImageData(imageData, 0, 0);
     return canvas;
   }
@@ -126,7 +191,11 @@
       try {
         if (input instanceof HTMLCanvasElement) {
           processCanvasBg(input);
-          input.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Background removal failed')), 'image/png', 1.0);
+          input.toBlob((blob) => {
+            if (!blob) return reject(new Error('Background removal failed'));
+            blob.__bgRemovalSkipped = !!input.__bgRemovalSkipped;
+            resolve(blob);
+          }, 'image/png', 1.0);
           return;
         }
         const url = URL.createObjectURL(input);
@@ -138,7 +207,11 @@
           canvas.getContext('2d').drawImage(img, 0, 0);
           URL.revokeObjectURL(url);
           processCanvasBg(canvas);
-          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Background removal failed')), 'image/png', 1.0);
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error('Background removal failed'));
+            blob.__bgRemovalSkipped = !!canvas.__bgRemovalSkipped;
+            resolve(blob);
+          }, 'image/png', 1.0);
         };
         img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
         img.src = url;
@@ -328,7 +401,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         if (matchCount >= opaqueSamples.length * 0.8) return 'solid'; return false;
     }
     
-    function getOutType(bg) { return bg === 'transparent' ? 'image/png' : 'image/jpeg'; }
+    function getOutType(bg, losslessPng) { return (bg === 'transparent' || losslessPng) ? 'image/png' : 'image/jpeg'; }
     
     function containResize(srcCanvas, W, H, bg) {
         var canvas = createCanvas(W, H), ctx = canvas.getContext('2d');
@@ -422,13 +495,27 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         return 'rgb(' + Math.round(Math.sqrt(rS/final.length)) + ',' + Math.round(Math.sqrt(gS/final.length)) + ',' + Math.round(Math.sqrt(bS/final.length)) + ')';
     }
 
+    // Parses either "#RRGGBB"/"#RGB" hex or "rgb(r,g,b)" strings into [r,g,b].
+    // (Hex colors like #FFFFFF or #A6A6A6 can contain zero digit characters —
+    // a digit-only regex misses those entirely, so hex needs its own path.)
+    function parseColorToRgb(colorStr) {
+        if (typeof colorStr === 'string' && colorStr[0] === '#') {
+            var hex = colorStr.slice(1);
+            if (hex.length === 3) hex = hex.split('').map(function(c) { return c + c; }).join('');
+            var num = parseInt(hex, 16);
+            if (!isNaN(num)) return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+        }
+        var m = colorStr && colorStr.match ? colorStr.match(/[\d.]+/g) : null;
+        return m ? m.map(Number) : [255, 255, 255];
+    }
+
     // Replaces background pixels that are close to targetColor with the exact flat targetColor
     // (feathering near the subject edges) so the final backdrop is a single solid color grade
     // instead of keeping the original photo's soft gradient/vignette shading.
     function flattenBackgroundToColor(canvas, targetColor, threshold) {
         var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
         var imgData = ctx.getImageData(0, 0, w, h), data = imgData.data;
-        var m = targetColor.match(/[\d.]+/g).map(Number), tr = m[0], tg = m[1], tb = m[2];
+        var m = parseColorToRgb(targetColor), tr = m[0], tg = m[1], tb = m[2];
         var feather = threshold * 0.6;
         for (var i = 0; i < data.length; i += 4) {
             var r = data[i], g = data[i+1], b = data[i+2];
@@ -546,6 +633,45 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         return canvas;
     }
 
+    function trimContentMargin(canvas) {
+        // Crops off excess transparent/near-white margin around a logo's actual artwork,
+        // so the logo fills its frame instead of floating in a sea of padding.
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        if (w < 4 || h < 4) return canvas;
+        var data = ctx.getImageData(0, 0, w, h).data;
+        var hasAlpha = false;
+        for (var i = 3; i < data.length; i += 4) { if (data[i] < 250) { hasAlpha = true; break; } }
+        var minX = w, minY = h, maxX = -1, maxY = -1;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var idx = (y * w + x) * 4;
+                var isContent;
+                if (hasAlpha) {
+                    isContent = data[idx + 3] > 20;
+                } else {
+                    isContent = !(data[idx] > 245 && data[idx + 1] > 245 && data[idx + 2] > 245);
+                }
+                if (isContent) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (maxX < minX || maxY < minY) return canvas; // blank image — nothing to trim
+        var contentW = maxX - minX + 1, contentH = maxY - minY + 1;
+        if (contentW > w * 0.97 && contentH > h * 0.97) return canvas; // already tight
+        var pad = Math.round(Math.max(contentW, contentH) * 0.04);
+        var x0 = Math.max(0, minX - pad), y0 = Math.max(0, minY - pad);
+        var x1 = Math.min(w, maxX + 1 + pad), y1 = Math.min(h, maxY + 1 + pad);
+        var cw = x1 - x0, ch = y1 - y0;
+        var out = createCanvas(cw, ch), octx = out.getContext('2d');
+        octx.drawImage(canvas, x0, y0, cw, ch, 0, 0, cw, ch);
+        return out;
+    }
+
     function unsharpMask(canvas, amount, radius) {
         var w = canvas.width, h = canvas.height;
         if (w * h > 9000000) return canvas;
@@ -565,8 +691,36 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         return canvas;
     }
 
+    function needsEnhance(canvas) {
+        // Skips the color boost on photos that are already vibrant and well-exposed,
+        // so "Food Enhance" only touches genuinely dull/underexposed shots instead of
+        // re-saturating images that already look correct.
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        var data;
+        try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return true; }
+        var step = Math.max(1, Math.floor(Math.sqrt((w * h) / 2500)));
+        var sumSat = 0, sumBright = 0, count = 0;
+        for (var y = 0; y < h; y += step) {
+            for (var x = 0; x < w; x += step) {
+                var i = (y * w + x) * 4;
+                var r = data[i], g = data[i + 1], b = data[i + 2];
+                var max = Math.max(r, g, b), min = Math.min(r, g, b);
+                var l = (max + min) / 2 / 255;
+                var sat = max === min ? 0 : (l > 0.5 ? (max - min) / (2 * 255 - max - min) : (max - min) / (max + min));
+                sumSat += sat;
+                sumBright += (r + g + b) / 3;
+                count++;
+            }
+        }
+        if (!count) return true;
+        var avgSat = sumSat / count, avgBright = (sumBright / count) / 255;
+        return avgSat < 0.28 || avgBright < 0.35;
+    }
+
     function applyColorScience(canvas, doScurve, doEnhance) {
         if (!doScurve && !doEnhance) return canvas;
+        if (doEnhance && !doScurve && !needsEnhance(canvas)) return canvas; // already looks good — leave colors untouched
         const ctx = canvas.getContext('2d');
         const temp = createCanvas(canvas.width, canvas.height);
         const tctx = temp.getContext('2d');
@@ -621,20 +775,40 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
                 }
             }
             
+            if (opts.trimMargin) canvas = trimContentMargin(canvas);
+
             let finalCanvas;
-            if (opts.fitMode === 'smart') finalCanvas = smartAutoResize(canvas, opts.W, opts.H, opts.bg);
-            else if (opts.fitMode === 'auto') finalCanvas = autoExtendResize(canvas, opts.W, opts.H, opts.bg);
-            else if (opts.fitMode === 'fill') finalCanvas = coverResize(canvas, opts.W, opts.H, opts.bg);
-            else finalCanvas = containResize(canvas, opts.W, opts.H, opts.bg);
+            var ss = (opts.superSample && opts.superSample > 1) ? opts.superSample : 1;
+            var rW = opts.W * ss, rH = opts.H * ss;
+            if (opts.fitMode === 'smart') finalCanvas = smartAutoResize(canvas, rW, rH, opts.bg);
+            else if (opts.fitMode === 'auto') finalCanvas = autoExtendResize(canvas, rW, rH, opts.bg);
+            else if (opts.fitMode === 'fill') finalCanvas = coverResize(canvas, rW, rH, opts.bg);
+            else finalCanvas = containResize(canvas, rW, rH, opts.bg);
+
+            if (ss > 1) {
+                // Route the supersample-to-final downscale through the same stepwise
+                // mipmap halving used elsewhere, rather than one direct drawImage call —
+                // a single large downscale leans entirely on the browser's built-in
+                // resampler, while halving in stages consistently produces cleaner,
+                // less muddy edges at large reduction ratios.
+                finalCanvas = hqDownscale(finalCanvas, opts.W, opts.H);
+                if (finalCanvas.width !== opts.W || finalCanvas.height !== opts.H) {
+                    var downCanvas = createCanvas(opts.W, opts.H), dctx = downCanvas.getContext('2d');
+                    dctx.imageSmoothingEnabled = true; dctx.imageSmoothingQuality = 'high';
+                    dctx.drawImage(finalCanvas, 0, 0, opts.W, opts.H);
+                    finalCanvas = downCanvas;
+                }
+            }
             
-            if (opts.defringe && opts.doBgRm) finalCanvas = defringeAndSpillSuppress(finalCanvas);
+            if (opts.defringe && (opts.doBgRm || opts.bg === 'transparent')) finalCanvas = defringeAndSpillSuppress(finalCanvas);
             if (opts.enhance || opts.scurve) finalCanvas = applyColorScience(finalCanvas, opts.scurve, opts.enhance);
             if (opts.sharpen) {
                 var sharpRadius = Math.max(1, Math.round(Math.min(opts.W, opts.H) / 500));
-                finalCanvas = unsharpMask(finalCanvas, 0.5, sharpRadius);
+                var sharpAmount = opts.sharpenBoost ? 0.9 : 0.5;
+                finalCanvas = unsharpMask(finalCanvas, sharpAmount, sharpRadius);
             }
             
-            let finalBlob = await finalCanvas.convertToBlob({ type: getOutType(opts.bg), quality: CURRENT_QUALITY });
+            let finalBlob = await finalCanvas.convertToBlob({ type: getOutType(opts.bg, opts.losslessPng), quality: CURRENT_QUALITY });
             self.postMessage({ id, success: true, blob: finalBlob });
         } catch (err) {
             self.postMessage({ id, success: false, error: err.toString() });
@@ -687,10 +861,11 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
           <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
           <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="logo_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600" title="Exports on solid backgrounds as lossless PNG instead of JPEG — avoids compression artifacts on sharp logo edges and text, at a larger file size."><input type="checkbox" id="logo_LosslessPng" checked style="accent-color:var(--org)"> 🖼️ Lossless PNG Output</label>
           
           
         </div>
-        <div id="logo_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="logo_ProgBar" class="prog-bar-fill"></div></div><span id="logo_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="logo_ProgLbl" class="prog-file-name">Ready...</span><span id="logo_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span></div></div></div></div>
+        <div id="logo_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="logo_ProgBar" class="prog-bar-fill"></div></div><span id="logo_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="logo_ProgLbl" class="prog-file-name">Ready...</span><span id="logo_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span></div></div></div></div><div id="logo_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="font-weight:700;color:#ff6b7a;margin-bottom:4px;">⚠️ Some images failed:</div><div id="logo_FailList"></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
             <button id="logo_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
             <button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
@@ -722,7 +897,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
           
           
         </div>
-        <div id="cov_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="cov_ProgBar" class="prog-bar-fill"></div></div><span id="cov_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="cov_ProgLbl" class="prog-file-name">Ready...</span><span id="cov_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span></div></div></div></div>
+        <div id="cov_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="cov_ProgBar" class="prog-bar-fill"></div></div><span id="cov_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="cov_ProgLbl" class="prog-file-name">Ready...</span><span id="cov_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span></div></div></div></div><div id="cov_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="font-weight:700;color:#ff6b7a;margin-bottom:4px;">⚠️ Some images failed:</div><div id="cov_FailList"></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
             <button id="cov_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
             <button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
@@ -755,7 +930,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         
         
       </div>
-      <div id="img_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="img_ProgBar" class="prog-bar-fill"></div></div><span id="img_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="img_ProgLbl" class="prog-file-name">Ready...</span><span id="img_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span></div></div></div></div>
+      <div id="img_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="img_ProgBar" class="prog-bar-fill"></div></div><span id="img_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="img_ProgLbl" class="prog-file-name">Ready...</span><span id="img_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span></div></div></div></div><div id="img_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="font-weight:700;color:#ff6b7a;margin-bottom:4px;">⚠️ Some images failed:</div><div id="img_FailList"></div></div>
       <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
           <button id="img_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
           <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
@@ -1018,7 +1193,13 @@ function getWorker() {
 }
 
 function processViaWorker(file, opts) {
-    return createImageBitmap(file).then(bitmap => {
+    var isSvg = (file.type === 'image/svg+xml') || /\.svg$/i.test(file.name || '');
+    // For SVGs, request a specific width only — the browser preserves the source's own
+    // aspect ratio when just one dimension is given, avoiding a stretched/distorted rasterization.
+    var bitmapPromise = (isSvg && opts.svgTargetW)
+        ? createImageBitmap(file, { resizeWidth: opts.svgTargetW, resizeQuality: 'high' }).catch(() => createImageBitmap(file))
+        : createImageBitmap(file);
+    return bitmapPromise.then(bitmap => {
         return new Promise((resolve, reject) => {
             const id = msgId++;
             pendingCallbacks.set(id, { resolve, reject });
@@ -1073,14 +1254,15 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-var hoverPreviewTimer = null, currentHoverIdx = null, currentHoverPrefix = null;
+var hoverPreviewTimer = null, currentHoverIdx = null, currentHoverPrefix = null, hoverGeneration = 0;
 
-async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, quality, e, sharpen, srcCache, resultCache) {
+async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, quality, e, sharpen, srcCache, resultCache, doBgRm) {
     currentHoverIdx = idx;
     currentHoverPrefix = prefix;
+    var myGen = ++hoverGeneration; // bumped on every hover so stale in-flight previews can bail out early
     clearTimeout(hoverPreviewTimer);
     hoverPreviewTimer = setTimeout(async function() {
-        if (currentHoverIdx !== idx || currentHoverPrefix !== prefix) return;
+        if (myGen !== hoverGeneration) return;
         var box = document.getElementById('hoverPreviewTooltip');
         box.style.display = 'block';
         brMoveHoverPreview(e);
@@ -1090,7 +1272,8 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
         if(b.src) URL.revokeObjectURL(b.src);
         b.src = URL.createObjectURL(file);
 
-        var settingsKey = idx + '::' + JSON.stringify({W, H, bg, fitMode, crop, quality, sharpen});
+        var lossless = (prefix === 'logo' && document.getElementById('logo_LosslessPng') && document.getElementById('logo_LosslessPng').checked);
+        var settingsKey = idx + '::' + JSON.stringify({W, H, bg, fitMode, crop, quality, sharpen, prefix, lossless, doBgRm});
         if (resultCache && resultCache[settingsKey]) {
             a.src = resultCache[settingsKey];
             a.style.display = 'block';
@@ -1099,6 +1282,7 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
         }
 
         a.style.display = 'none';
+        document.getElementById('hpLoading').innerHTML = doBgRm ? '🧠 Running AI...' : '🪄 Processing...';
         document.getElementById('hpLoading').style.display = 'flex';
         try {
             var previewData;
@@ -1109,7 +1293,7 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
                     let pf = file, scaleUsed = 1;
                     try {
                         const img = await createImageBitmap(file);
-                        const MAX_SIZE = 480;
+                        const MAX_SIZE = 320; // smaller preview decode = noticeably snappier hover response
                         if (img.width > MAX_SIZE || img.height > MAX_SIZE) {
                             scaleUsed = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
                             const c = document.createElement('canvas');
@@ -1125,25 +1309,48 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
                 if (srcCache) srcCache[idx] = srcPromise;
                 previewData = await srcPromise;
             }
+            if (myGen !== hoverGeneration) return; // superseded by a newer hover — stop before the expensive part
             var previewFile = previewData.file;
             var previewScale = previewData.scale;
+            var bgRmSkipped = false;
+            if (doBgRm) {
+                try {
+                    var pngBlob = await window.imglyRemoveBackground(previewFile, { output: { format: 'image/png', quality: 1.0 } });
+                    previewFile = pngBlob;
+                    bgRmSkipped = !!pngBlob.__bgRemovalSkipped;
+                } catch (err) { /* fall back to original preview file */ }
+            }
+            if (myGen !== hoverGeneration) return;
             var scaledCrop = crop ? { x: crop.x * previewScale, y: crop.y * previewScale, w: crop.w * previewScale, h: crop.h * previewScale, rot: crop.rot } : null;
-            var blob = await processViaWorker(previewFile, { W, H, bg, fitMode, crop: scaledCrop, quality, sharpen });
+            var blob = await processViaWorker(previewFile, {
+                W, H, bg, fitMode, crop: scaledCrop, quality, sharpen,
+                doBgRm,
+                defringe: doBgRm || (prefix === 'logo' && bg === 'transparent'),
+                trimMargin: (prefix === 'logo'),
+                sharpenBoost: (prefix === 'logo'),
+                superSample: 1, // full supersampling is for final export quality; skip it here so the preview renders fast
+                losslessPng: (prefix === 'logo' && document.getElementById('logo_LosslessPng') && document.getElementById('logo_LosslessPng').checked)
+            });
+            if (myGen !== hoverGeneration) return; // a newer hover started while this was computing — drop this result
             if (currentHoverIdx === idx && currentHoverPrefix === prefix && blob) {
                 if (blob.size < 1500) {
                     document.getElementById('hpLoading').innerHTML = '⚠️ Preview looks empty — try Process & Download to check the real output';
                     document.getElementById('hpLoading').style.display = 'flex';
                     return;
                 }
+                if (bgRmSkipped) {
+                    document.getElementById('hpLoading').innerHTML = "⚠️ Background removal wasn't reliable here — showing original";
+                    document.getElementById('hpLoading').style.display = 'flex';
+                }
                 var url = URL.createObjectURL(blob);
                 a.src = url;
                 a.style.display = 'block';
-                document.getElementById('hpLoading').style.display = 'none';
+                if (!bgRmSkipped) document.getElementById('hpLoading').style.display = 'none';
                 if (resultCache) resultCache[settingsKey] = url;
             }
         } catch(err) {
             if (currentHoverIdx === idx) {
-                document.getElementById('hpLoading').innerHTML = '❌ Error';
+                document.getElementById('hpLoading').innerHTML = '❌ ' + (err && err.message ? err.message : 'Preview failed');
                 document.getElementById('hpLoading').style.display = 'flex';
             }
         }
@@ -1207,18 +1414,19 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         if(s.quality && getEl('Quality')) { getEl('Quality').value = s.quality; getEl('QVal').textContent = s.quality + '%'; }
         if(s.bgRm !== undefined) getEl('BgRm').checked = s.bgRm;
         if(s.enhance !== undefined) getEl('Enhance').checked = s.enhance;
+        if(s.losslessPng !== undefined && getEl('LosslessPng')) getEl('LosslessPng').checked = s.losslessPng;
     }
 
     function saveSettings() {
         const settings = {
             fit: getEl('Fit').value, bg: getEl('Bg').value, quality: getEl('Quality') ? getEl('Quality').value : (forcedQuality*100), bgRm: getEl('BgRm').checked,
-            enhance: getEl('Enhance').checked
+            enhance: getEl('Enhance').checked, losslessPng: getEl('LosslessPng') ? getEl('LosslessPng').checked : undefined
         };
         localStorage.setItem('talabat_' + toolPrefix, JSON.stringify(settings));
     }
 
     loadSettings();
-    ['Fit', 'Bg', 'Quality', 'BgRm', 'Enhance'].forEach(id => {
+    ['Fit', 'Bg', 'Quality', 'BgRm', 'Enhance', 'LosslessPng'].forEach(id => {
         const el = getEl(id);
         if(el) el.addEventListener('change', saveSettings);
     });
@@ -1260,18 +1468,37 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         if (hasPdf) brShowToast('Rendering PDF pages, please wait...', 'warning');
 
         let processedFiles = [];
+        let heicFailCount = 0;
         for (let i = 0; i < files.length; i++) {
             let f = files[i];
             let isHeic = f.name.toLowerCase().endsWith('.heic') || f.name.toLowerCase().endsWith('.heif');
             let isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
             if (isHeic && typeof heic2any !== 'undefined') {
-                try {
-                    let converted = await heic2any({ blob: f, toType: "image/jpeg", quality: 1.0 });
-                    let finalBlob = Array.isArray(converted) ? converted[0] : converted;
-                    processedFiles.push(new File([finalBlob], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: "image/jpeg" }));
-                } catch (err) {
-                    brShowToast(`Failed to convert ${f.name}`, 'error');
+                let converted = null, lastErr = null;
+                // Some HEIC files (multi-image bursts, HDR variants) intermittently fail on the
+                // first decode attempt — a single retry resolves a meaningful share of these.
+                for (let attempt = 0; attempt < 2 && !converted; attempt++) {
+                    try {
+                        let result = await heic2any({ blob: f, toType: "image/jpeg", quality: 1.0 });
+                        converted = Array.isArray(result) ? result[0] : result;
+                    } catch (err) {
+                        lastErr = err;
+                    }
                 }
+                if (converted) {
+                    processedFiles.push(new File([converted], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: "image/jpeg" }));
+                } else {
+                    heicFailCount++;
+                    let reason = (lastErr && lastErr.message) ? lastErr.message : 'unknown error';
+                    brShowToast(`Couldn't convert ${f.name} (${reason}) — kept in the list but excluded from selection.`, 'error');
+                    // Keep the original file visible in the batch (so counts stay accurate and it's
+                    // not silently dropped) but leave it unselected since it can't be processed as-is.
+                    processedFiles.push(f);
+                }
+            } else if (isHeic) {
+                heicFailCount++;
+                brShowToast(`Couldn't convert ${f.name} — the HEIC converter didn't load (check your connection).`, 'error');
+                processedFiles.push(f);
             } else if (isPdf && typeof pdfjsLib !== 'undefined') {
                 try {
                     const arrayBuffer = await f.arrayBuffer();
@@ -1298,7 +1525,10 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         }
 
         brFiles = processedFiles.slice(0, 1000);
-        brSelected = new Array(brFiles.length).fill(true);
+        brSelected = brFiles.map(f => {
+            let n = f.name.toLowerCase();
+            return !(n.endsWith('.heic') || n.endsWith('.heif')); // leave unconverted HEIC files unselected
+        });
         brRejected = new Array(brFiles.length).fill(false);
         brCrops = {};
         brFitModes = {};
@@ -1319,11 +1549,11 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         } else if (brFiles.length > 200) {
             brShowToast(`Loaded ${brFiles.length} files — large batches may take a while and use more memory.`, 'warning');
         }
-        checkTinyImages(brFiles, targetW, targetH);
+        checkTinyImages(brFiles, targetW, targetH, toolPrefix);
     }
 
-    async function checkTinyImages(files, targetW, targetH) {
-        var UPSCALE_WARN_FACTOR = 2; // flag images that need to be blown up more than 2x to fill the target
+    async function checkTinyImages(files, targetW, targetH, toolPrefix) {
+        var UPSCALE_WARN_FACTOR = (toolPrefix === 'logo') ? 1.5 : 2; // logos are more visually sensitive to being undersized
         var tinyCount = 0;
         await Promise.all(files.map(function(file) {
             return new Promise(function(resolve) {
@@ -1483,7 +1713,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             });
 
             div.addEventListener('click', () => brOpenCropModal(idx));
-            div.addEventListener('mouseenter', e => startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, !getEl('Quality'), brPreviewSrcCache, brPreviewResultCache));
+            div.addEventListener('mouseenter', e => startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, !getEl('Quality'), brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked));
             div.addEventListener('mousemove', e => brMoveHoverPreview(e));
             div.addEventListener('mouseleave', () => {
                 brStopHoverPreview();
@@ -1519,7 +1749,9 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     if (getEl('SearchSelectBtn')) {
         getEl('SearchSelectBtn').addEventListener('click', function() {
             brFiles.forEach(function(file, idx) {
-                if (!brSearchTerm || file.name.toLowerCase().indexOf(brSearchTerm) !== -1) brSelected[idx] = true;
+                let n = file.name.toLowerCase();
+                let isUnconvertedHeic = n.endsWith('.heic') || n.endsWith('.heif');
+                if (!isUnconvertedHeic && (!brSearchTerm || n.indexOf(brSearchTerm) !== -1)) brSelected[idx] = true;
             });
             renderGrid();
             updateSelectedCount();
@@ -1549,13 +1781,12 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     }
 
     getEl('SelectAllBtn').addEventListener('click', () => {
-        brSelected.fill(true);
-        updateSelectedCount();
-        Array.from(getEl('Grid').children).forEach(d => {
-            d.style.opacity='1';
-            var chk = d.querySelector('input');
-            if(chk) chk.checked=true;
+        brSelected = brFiles.map(f => {
+            let n = f.name.toLowerCase();
+            return !(n.endsWith('.heic') || n.endsWith('.heif')); // don't re-select files that failed to convert
         });
+        updateSelectedCount();
+        renderGrid();
     });
 
     getEl('SelectNoneBtn').addEventListener('click', () => {
@@ -1897,11 +2128,18 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         var bg = getEl('Bg').value, defaultFitMode = getEl('Fit').value;
         var quality = getEl('Quality') ? parseInt(getEl('Quality').value) / 100 : forcedQuality;
         var isLockedQualityTool = !getEl('Quality');
-        var enhance = getEl('Enhance').checked, scurve = false, defringe = doBgRm;
+        var enhance = getEl('Enhance').checked, scurve = false;
+        var defringe = doBgRm || (toolPrefix === 'logo' && bg === 'transparent');
+        var trimMargin = (toolPrefix === 'logo');
+        var sharpenBoost = (toolPrefix === 'logo');
+        var superSample = (toolPrefix === 'logo') ? 4 : 1;
+        var losslessPng = (toolPrefix === 'logo' && getEl('LosslessPng') && getEl('LosslessPng').checked);
 
         var total=filesToProcess.length, done=0, failed=0, zip=new JSZip(), singleBlob=null, singleName=null, usedNames={};
         var startTime = Date.now(), completedItems = 0;
         processedBlobs = [];
+        var failedItems = [];
+        if (getEl('FailSummary')) getEl('FailSummary').style.display = 'none';
 
         const MAX_CONCURRENT = 4;
         let activeWorkers = 0;
@@ -1930,6 +2168,9 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                                 let pngBlob = await window.imglyRemoveBackground(item.file, { output: { format: 'image/png', quality: 1.0 } });
                                 pngBlob.name = item.file.name;
                                 fileToProcess = pngBlob;
+                                if (pngBlob.__bgRemovalSkipped) {
+                                    brShowToast(`⚠️ Couldn't reliably remove the background on ${item.file.name} — kept the original.`, 'warning');
+                                }
                             } catch(err) {
                                 brShowToast(`⚠️ AI failed on ${item.file.name}. Processing original.`, 'warning');
                             }
@@ -1939,15 +2180,16 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                             let blob = await processViaWorker(fileToProcess, {
                                 W:targetW, H:targetH, bg, fitMode: itemFitMode,
                                 crop:brCrops[item.origIdx]||null,
-                                quality, doBgRm, enhance, scurve, defringe,
-                                sharpen: isLockedQualityTool
+                                quality, doBgRm, enhance, scurve, defringe, trimMargin,
+                                sharpen: isLockedQualityTool, sharpenBoost, superSample, losslessPng,
+                                svgTargetW: targetW * superSample, svgTargetH: targetH * superSample
                             });
                             let baseName = "";
                             if (toolPrefix === 'logo') baseName = "Resized Logo" + (doBgRm ? '_nobg' : '');
                             else if (toolPrefix === 'cov') baseName = "Resized Cover" + (doBgRm ? '_nobg' : '');
                             else baseName = item.file.name.replace(/\.[^.]+$/, '') + (doBgRm ? '_nobg' : '');
 
-                            var ext = (bg === 'transparent') ? '.png' : '.jpg';
+                            var ext = (bg === 'transparent' || losslessPng) ? '.png' : '.jpg';
                             var fname = baseName + ext;
                             if (usedNames[fname]) {
                                 usedNames[fname]++;
@@ -1967,6 +2209,9 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                             failed++;
                             getEl('Fail').textContent = failed;
                             console.error("Processing error:", err);
+                            let reason = (err && err.message) ? err.message : 'unknown error';
+                            failedItems.push({ name: item.file.name, reason: reason });
+                            brShowToast(`❌ Failed on ${item.file.name}: ${reason}`, 'error');
                         }
                     })().finally(() => {
                         completedItems++;
@@ -2000,6 +2245,15 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         var elapsed = ((Date.now() - startTime)/1000).toFixed(1), timeStr = elapsed < 60 ? elapsed+'s' : (elapsed/60).toFixed(1)+'m';
         getEl('ProgLbl').textContent = (brStopped ? '⏹ Stopped. ' : '🎉 Done! ') + done + '/' + total + ' in ' + timeStr + '.';
         brShowToast(brStopped ? '⏹ Stopped' : '🎉 Done! Downloading...', brStopped ? '' : 'success');
+
+        if (failedItems.length > 0 && getEl('FailSummary') && getEl('FailList')) {
+            getEl('FailList').innerHTML = failedItems.map(function(f) {
+                var safeName = String(f.name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                var safeReason = String(f.reason).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `<div style="margin-bottom:4px;"><strong>${safeName}</strong> — ${safeReason}</div>`;
+            }).join('');
+            getEl('FailSummary').style.display = 'block';
+        }
 
         if(total === 1 && singleBlob && !processedBlobs[0].rejected) {
             playSuccessSound();
