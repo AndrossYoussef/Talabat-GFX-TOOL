@@ -225,10 +225,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--org:#FF5900;--red:#B34700;--bg:#12151B;--card:rgba(30,35,43,0.8);--card2:rgba(38,44,53,0.7);--inp:rgba(20,24,30,0.9);--b:rgba(255,89,0,0.15);--b2:rgba(255,89,0,0.3);--t1:#F0F0F0;--t2:#9BA3AF;--t3:#5C636E;--r:20px;--rs:12px;--glow-org:rgba(255,89,0,0);--glow-red:rgba(179,71,0,0)}
+:root{--org:#FF5900;--red:#B34700;--bg:#2A2D33;--card:rgba(57,61,68,0.94);--card2:rgba(72,76,84,0.9);--inp:rgba(45,49,56,0.97);--b:rgba(255,255,255,0.13);--b2:rgba(255,89,0,0.42);--t1:#F7F7F5;--t2:#C5C8CC;--t3:#A4A8AE;--r:20px;--rs:12px;--glow-org:rgba(255,89,0,0.12);--glow-red:rgba(179,71,0,0.12)}
 body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;padding-bottom:4rem;overflow-x:hidden;position:relative}
 @keyframes floatAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,40px) scale(1.1)}100%{transform:translate(-40px,60px) scale(0.95)}}
-.header{background:rgba(31,18,16,0.85);border-bottom:1px solid var(--b);padding:0 2rem;height:68px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.header{background:rgba(43,47,54,0.96);border-bottom:1px solid var(--b);padding:0 2rem;height:68px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
 .hl{display:flex;align-items:center;gap:14px}
 .header-logo-img{height:36px;width:auto;display:block}
 @keyframes logoPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
@@ -266,7 +266,7 @@ select.fi:focus,input.fi-text:focus{border-color:var(--org);box-shadow:0 0 0 3px
 .field-label{display:block;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px}
 .settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;align-items:end;margin-bottom:1rem}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--b);background:var(--card2);color:var(--t1);transition:all .2s ease;backdrop-filter:blur(10px)}
-.btn:hover{border-color:var(--b2);background:rgba(65,65,65,0.7);transform:translateY(-1px)}
+.btn:hover{border-color:var(--b2);background:rgba(100,104,112,0.82);transform:translateY(-1px)}
 .btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
 .btn-primary{background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;box-shadow:0 4px 20px rgba(232,25,44,0.4),0 0 30px rgba(255,89,0,0.2);position:relative;overflow:hidden;transition:all 0.3s ease}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 25px rgba(232,25,44,0.5),0 0 40px rgba(255,89,0,0.3)}
@@ -286,7 +286,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
 .prog-block{margin-bottom:1.5rem;background:var(--card2);border-radius:14px;padding:18px;border:1px solid rgba(255,89,0,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.15);position:relative;overflow:hidden}
 .prog-top{display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .prog-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-.prog-bar-track{flex:1;background:rgba(0,0,0,0.4);border-radius:99px;height:14px;position:relative;box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);overflow:hidden}
+.prog-bar-track{flex:1;background:rgba(24,27,32,0.5);border-radius:99px;height:14px;position:relative;box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);overflow:hidden}
 .prog-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#B34700 0%,#FF5900 50%,#FFC08A 100%);background-size:200% 100%;animation:moveGradient 2.5s ease-in-out infinite;width:0%;transition:width 0.4s cubic-bezier(0.34,1.56,0.64,1);position:relative;box-shadow:0 0 15px rgba(255,89,0,0.6)}
 .prog-bar-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.5) 50%,transparent);transform:translateX(-100%);animation:shimmer 1.8s infinite linear}
 @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
@@ -343,6 +343,19 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
 .guide-list{counter-reset:item}
 .guide-list li strong{color:var(--org);font-weight:700}
 .guide-section.reject .guide-list li strong{color:#E8192C}
+#hoverPreviewTooltip{max-height:calc(100vh - 28px);overflow:auto}
+@media (max-width:760px){#hoverPreviewTooltip{width:calc(100vw - 24px);max-width:none;padding:10px}#hoverPreviewTooltip>div:nth-child(2){grid-template-columns:1fr;gap:10px}#hoverPreviewTooltip>div:nth-child(2)>div{aspect-ratio:3/2;min-height:0}}
+.review-queue{display:none;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 12px;padding:10px 12px;border:1px solid var(--b);border-radius:10px;background:linear-gradient(135deg,rgba(255,89,0,.08),var(--inp));font-size:11px}
+.review-queue.show{display:flex}
+.review-queue .rq-title{font-weight:800;color:var(--t1)}
+.review-queue .rq-count{font-weight:800;padding:3px 8px;border-radius:999px;background:rgba(74,222,128,.14);color:#4ade80}
+.review-queue .rq-review{font-weight:800;padding:3px 8px;border-radius:999px;background:rgba(250,204,21,.16);color:#facc15}
+.review-queue .rq-reject{font-weight:800;padding:3px 8px;border-radius:999px;background:rgba(248,113,113,.16);color:#f87171}
+.review-queue .rq-pending{color:var(--t2);margin-left:auto}
+.review-badge{position:absolute;right:4px;top:4px;z-index:21;max-width:calc(100% - 8px);padding:3px 6px;border-radius:999px;background:rgba(30,35,43,.88);font-size:9px;font-weight:800;line-height:1;color:#cbd5e1;box-shadow:0 2px 8px rgba(0,0,0,.25);pointer-events:none}
+.review-badge.pass{color:#4ade80}.review-badge.review{color:#facc15}.review-badge.reject{color:#f87171}.review-badge.pending{color:#cbd5e1}
+.review-detail{display:block;margin:4px 0 0;padding:5px 6px;border-radius:6px;background:rgba(0,0,0,.12);font-size:9px;line-height:1.25;color:var(--t2);white-space:normal}
+@media (max-width:760px){.review-queue .rq-pending{margin-left:0;width:100%}}
 </style>
 </head>
 <body>
@@ -360,6 +373,12 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         }
     }
     
+    // Real restaurant photos often use warm or gray-white backdrops rather than pure white.
+    // Keep this classifier conservative: bright, low-chroma pixels only.
+    function isBrightNeutralPixel(r, g, b) {
+        return Math.min(r, g, b) >= 215 && (Math.max(r, g, b) - Math.min(r, g, b)) <= 28;
+    }
+
     function hqDownscale(srcCanvas, targetW, targetH) {
         var canvas = srcCanvas, curW = canvas.width, curH = canvas.height;
         while (curW > targetW * 1.2 && curH > targetH * 1.2) {
@@ -402,7 +421,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         if (matchCount >= opaqueSamples.length * 0.8) return 'solid'; return false;
     }
     
-    function getOutType(bg, losslessPng) { return (bg === 'transparent' || losslessPng) ? 'image/png' : 'image/jpeg'; }
+    function getOutType() { return 'image/jpeg'; }
     
     function containResize(srcCanvas, W, H, bg) {
         var canvas = createCanvas(W, H), ctx = canvas.getContext('2d');
@@ -476,7 +495,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         for (var x = 0; x < w; x += step) { var i0 = x * 4, i1 = ((h - 1) * w + x) * 4; samples.push([data[i0], data[i0+1], data[i0+2]], [data[i1], data[i1+1], data[i1+2]]); }
         for (var y = 1; y < h - 1; y += step) { var i2 = (y * w) * 4, i3 = (y * w + w - 1) * 4; samples.push([data[i2], data[i2+1], data[i2+2]], [data[i3], data[i3+1], data[i3+2]]); }
         if (!samples.length) return 'scene';
-        var whiteCount = samples.filter(s => s[0] > 235 && s[1] > 235 && s[2] > 235).length;
+        var whiteCount = samples.filter(s => isBrightNeutralPixel(s[0], s[1], s[2])).length;
         if (whiteCount / samples.length > 0.65) return 'white';
         var aR = 0, aG = 0, aB = 0; samples.forEach(s => { aR += s[0]*s[0]; aG += s[1]*s[1]; aB += s[2]*s[2]; });
         aR = Math.sqrt(aR / samples.length); aG = Math.sqrt(aG / samples.length); aB = Math.sqrt(aB / samples.length);
@@ -639,7 +658,10 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       }
       if (bgType === 'white') {
          var flatBg = bgHex(bg);
-         flattenBackgroundToColor(stripped, flatBg, 40);
+         // Near-white source backdrops can be 220–240 per channel; use a wider
+         // threshold only for the white-output branch so the gray cast is flattened
+         // without changing the behavior of colored background presets.
+         flattenBackgroundToColor(stripped, flatBg, 70);
          return fitOnBg(stripped, W, H, flatBg);
       } else if (bgType === 'solid') {
          var containScale = Math.min(W / stripped.width, H / stripped.height);
@@ -878,7 +900,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
                 finalCanvas = unsharpMask(finalCanvas, sharpAmount, sharpRadius);
             }
             
-            let finalBlob = await finalCanvas.convertToBlob({ type: getOutType(opts.bg, opts.losslessPng), quality: CURRENT_QUALITY });
+            let finalBlob = await finalCanvas.convertToBlob({ type: getOutType(), quality: CURRENT_QUALITY });
             self.postMessage({ id, success: true, blob: finalBlob });
         } catch (err) {
             var msg = (err && err.message) ? err.message : String(err);
@@ -929,14 +951,13 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         </div>
         <div class="settings-grid">
           <div><label class="field-label">Fit mode</label><select id="logo_Fit" class="fi"><option value="fit">Fit</option><option value="auto">Auto-Extend</option><option value="fill">Fill</option></select></div>
-          <div><label class="field-label">Background</label><select id="logo_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
+          <div><label class="field-label">Background</label><select id="logo_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option></select></div>
           <div><label class="field-label">Quality</label><div style="padding:10px 14px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);font-size:12px;font-weight:700;color:var(--org);display:flex;align-items:center;gap:6px;">🏆 Max Quality (Locked)</div></div>
           <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="logo_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
         </div>
         <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
           <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
           <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="logo_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600" title="Exports on solid backgrounds as lossless PNG instead of JPEG — avoids compression artifacts on sharp logo edges and text, at a larger file size."><input type="checkbox" id="logo_LosslessPng" checked style="accent-color:var(--org)"> 🖼️ Lossless PNG Output</label>
           
           
         </div>
@@ -945,7 +966,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             <button id="logo_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
             <button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
         </div>
-        <div id="logo_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
+        <div id="logo_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
         <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="logo_CropModalTitle">✂️ Smart Crop</div><button id="logo_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="logo_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="logo_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="logo_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="logo_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="logo_ZoomIn" class="btn crop-icon-btn">+</button><span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="logo_FitBtn" class="btn">⛶ Fit</button><button id="logo_FillBtn" class="btn">⬛ Fill</button><button id="logo_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="logo_RotL" class="btn crop-icon-btn">↺</button><button id="logo_RotR" class="btn crop-icon-btn">↻</button><span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="logo_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="logo_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
@@ -962,7 +983,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         </div>
         <div class="settings-grid">
           <div><label class="field-label">Fit mode</label><select id="cov_Fit" class="fi"><option value="auto">Auto-Extend</option><option value="fill">Fill</option><option value="fit">Fit</option></select></div>
-          <div><label class="field-label">Background</label><select id="cov_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
+          <div><label class="field-label">Background</label><select id="cov_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option></select></div>
           <div><label class="field-label">Quality</label><div style="padding:10px 14px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);font-size:12px;font-weight:700;color:var(--org);display:flex;align-items:center;gap:6px;">🏆 Max Quality (Locked)</div></div>
           <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="cov_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
         </div>
@@ -977,7 +998,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             <button id="cov_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
             <button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
         </div>
-        <div id="cov_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
+        <div id="cov_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
         <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="cov_CropModalTitle">✂️ Smart Crop</div><button id="cov_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="cov_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="cov_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="cov_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="cov_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="cov_ZoomIn" class="btn crop-icon-btn">+</button><span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="cov_FitBtn" class="btn">⛶ Fit</button><button id="cov_FillBtn" class="btn">⬛ Fill</button><button id="cov_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="cov_RotL" class="btn crop-icon-btn">↺</button><button id="cov_RotR" class="btn crop-icon-btn">↻</button><span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="cov_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="cov_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
@@ -995,7 +1016,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       </div>
       <div class="settings-grid">
         <div><label class="field-label">Fit mode</label><div style="display:flex;gap:6px"><select id="img_Fit" class="fi" style="flex:1"><option value="smart" selected>🤖 Smart Auto</option><option value="fit">Fit</option><option value="fill">Fill</option></select><button id="img_ApplyAllFit" type="button" class="btn" title="Apply this mode to all loaded images (per-image override still works)" style="padding:9px 10px;font-size:11px;white-space:nowrap">⇩ All</button></div></div>
-        <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option><option value="transparent">Transparent (PNG)</option></select></div>
+        <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option></select></div>
         <div><label class="field-label">Quality: <span id="img_QVal">100%</span></label><input type="range" id="img_Quality" min="70" max="100" value="100" style="width:100%;accent-color:var(--org)"></div>
         <div><label class="field-label">AI Magic</label><div style="display:flex;gap:8px;"><label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:12px;font-weight:600;flex:1"><input type="checkbox" id="img_BgRm" style="accent-color:var(--org)">✨ Remove BG</label><a href="https://cleanup.pictures" target="_blank" class="btn cleanup-btn" style="flex:1;text-decoration:none;justify-content:center;font-size:12px;"><span class="wand-icon">🪄</span>&nbsp;cleanup.pictures</a></div></div>
       </div>
@@ -1010,7 +1031,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
           <button id="img_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
           <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><input type="text" id="img_Search" class="fi-text" placeholder="🔎 Search files by name..." style="flex:1;padding:8px 12px;font-size:12px;"><button id="img_SearchSelectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Select shown</button><button id="img_SearchDeselectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Deselect shown</button></div><div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><input type="text" id="img_Search" class="fi-text" placeholder="🔎 Search files by name..." style="flex:1;padding:8px 12px;font-size:12px;"></div><div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
       <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
     </div>
   </div>
@@ -1123,14 +1144,14 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     </div>
   </div>
 
-  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:14px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:600px; max-width:92vw; backdrop-filter:blur(8px); pointer-events:none;">
+  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:14px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:760px; max-width:94vw; backdrop-filter:blur(8px); pointer-events:none;">
     <div style="font-size:10px; font-weight:700; color:var(--t2); margin-bottom:8px; text-align:center; text-transform:uppercase; letter-spacing:1px;">Before / After Preview</div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
-      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+      <div style="position:relative; width:100%; aspect-ratio:3/2; min-height:210px; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
         <div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
         <img id="hpBefore" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain;">
       </div>
-      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+      <div style="position:relative; width:100%; aspect-ratio:3/2; min-height:210px; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
         <div style="position:absolute; top:4px; left:4px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
         <img id="hpAfter" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:none;">
         <div id="hpLoading" style="position:absolute; inset:0; background:rgba(40,40,55,0.9); display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:600; color:var(--t1); border-radius:8px;"><span style="font-size:18px;">🪄</span> Processing...</div>
@@ -1347,8 +1368,7 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
         if(b.src) URL.revokeObjectURL(b.src);
         b.src = URL.createObjectURL(file);
 
-        var lossless = (prefix === 'logo' && document.getElementById('logo_LosslessPng') && document.getElementById('logo_LosslessPng').checked);
-        var settingsKey = idx + '::' + JSON.stringify({W, H, bg, fitMode, crop, quality, sharpen, prefix, lossless, doBgRm});
+        var settingsKey = idx + '::' + JSON.stringify({W, H, bg, fitMode, crop, quality, sharpen, prefix, doBgRm});
         if (resultCache && resultCache[settingsKey]) {
             a.src = resultCache[settingsKey];
             a.style.display = 'block';
@@ -1404,7 +1424,6 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
                 trimMargin: (prefix === 'logo'),
                 sharpenBoost: (prefix === 'logo'),
                 superSample: 1, // full supersampling is for final export quality; skip it here so the preview renders fast
-                losslessPng: (prefix === 'logo' && document.getElementById('logo_LosslessPng') && document.getElementById('logo_LosslessPng').checked)
             });
             if (myGen !== hoverGeneration) return; // a newer hover started while this was computing — drop this result
             if (currentHoverIdx === idx && currentHoverPrefix === prefix && blob) {
@@ -1467,6 +1486,147 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     var processedBlobs = [];
     var brSearchTerm = '';
     var brLastFailedFiles = []; // File object refs, not indices — indices can go stale after drag-reorder
+    var brReviewStates = [];
+    var brReviewRun = 0;
+    var brReviewTimer = null;
+    var brReviewActive = false;
+    var brReviewVersions = [];
+
+    function ensureReviewQueue() {
+        var stats = getEl('Stats');
+        if (!stats || getEl('ReviewQueue')) return;
+        var queue = document.createElement('div');
+        queue.id = toolPrefix + '_ReviewQueue';
+        queue.className = 'review-queue';
+        queue.innerHTML = '<span class="rq-title">🧠 Smart Review</span><span class="rq-count" id="' + toolPrefix + '_ReviewPass">0 pass</span><span class="rq-review" id="' + toolPrefix + '_ReviewReview">0 review</span><span class="rq-reject" id="' + toolPrefix + '_ReviewReject">0 reject</span><span class="rq-pending" id="' + toolPrefix + '_ReviewPending">Fast local checks idle</span>';
+        stats.parentNode.insertBefore(queue, stats.nextSibling);
+    }
+
+    function reviewLabel(state) {
+        if (!state) return { text: '', cls: 'pending' };
+        if (state.status === 'pass') return { text: '✓ Pass', cls: 'pass' };
+        if (state.status === 'reject') return { text: '✕ Reject', cls: 'reject' };
+        return { text: '⚠ Review', cls: 'review' };
+    }
+
+    function updateReviewCard(idx) {
+        var card = document.getElementById(toolPrefix + '_review_' + idx);
+        var detail = document.getElementById(toolPrefix + '_review_detail_' + idx);
+        if (!card) return;
+        var info = reviewLabel(brReviewStates[idx]);
+        card.textContent = info.text;
+        card.className = 'review-badge ' + info.cls;
+        card.style.display = brReviewStates[idx] ? 'block' : 'none';
+        if (detail) {
+            var reasons = brReviewStates[idx] && brReviewStates[idx].reasons || [];
+            detail.textContent = reasons.length ? reasons.join(' · ') : (brReviewStates[idx] ? 'No local issues detected' : 'Checking blur, resolution, and crop risk…');
+            detail.style.display = brReviewStates[idx] ? 'block' : 'none';
+        }
+    }
+
+    function updateReviewSummary() {
+        var queue = getEl('ReviewQueue');
+        if (!queue) return;
+        var pass = brReviewStates.filter(s => s && s.status === 'pass').length;
+        var review = brReviewStates.filter(s => s && s.status === 'review').length;
+        var reject = brReviewStates.filter(s => s && s.status === 'reject').length;
+        var pending = brFiles.length - pass - review - reject;
+        getEl('ReviewPass').textContent = pass + ' pass';
+        getEl('ReviewReview').textContent = review + ' review';
+        getEl('ReviewReject').textContent = reject + ' reject';
+        getEl('ReviewPending').textContent = brReviewActive ? ('Re-reviewing ' + pending + ' image' + (pending === 1 ? '' : 's') + ' in the background') : 'Fast local checks complete';
+        queue.classList.toggle('show', brFiles.length > 0);
+    }
+
+    function reviewBlurVariance(canvas) {
+        var w = canvas.width, h = canvas.height;
+        if (w < 8 || h < 8) return 999;
+        var data;
+        try { data = canvas.getContext('2d').getImageData(0, 0, w, h).data; } catch (e) { return 999; }
+        function gray(x, y) { var i = (y * w + x) * 4; return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114; }
+        var sum = 0, sumSq = 0, n = 0;
+        for (var y = 1; y < h - 1; y += 2) for (var x = 1; x < w - 1; x += 2) {
+            var lap = gray(x - 1, y) + gray(x + 1, y) + gray(x, y - 1) + gray(x, y + 1) - 4 * gray(x, y);
+            sum += lap; sumSq += lap * lap; n++;
+        }
+        if (!n) return 999;
+        var mean = sum / n;
+        return Math.max(0, sumSq / n - mean * mean);
+    }
+
+    async function reviewOneFile(idx, token, modeOverride, revision) {
+        var file = brFiles[idx];
+        if (!file || token !== brReviewRun || (revision !== undefined && revision !== brReviewVersions[idx])) return;
+        var url = URL.createObjectURL(file);
+        try {
+            var bitmap = await createImageBitmap(file);
+            if (token !== brReviewRun || (revision !== undefined && revision !== brReviewVersions[idx])) { bitmap.close(); return; }
+            var nw = bitmap.width, nh = bitmap.height;
+            if (!nw || !nh) {
+                brReviewStates[idx] = { status: 'reject', reasons: ['Unreadable dimensions'] };
+                bitmap.close(); updateReviewCard(idx); updateReviewSummary(); return;
+            }
+            var maxSide = 256, scale = Math.min(1, maxSide / Math.max(nw, nh));
+            var c = document.createElement('canvas');
+            c.width = Math.max(8, Math.round(nw * scale)); c.height = Math.max(8, Math.round(nh * scale));
+            var ctx = c.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(bitmap, 0, 0, c.width, c.height);
+            bitmap.close();
+            if (brRejected[idx]) {
+                brReviewStates[idx] = { status: 'reject', reasons: ['Manually marked rejected'], width: nw, height: nh };
+                updateReviewCard(idx); updateReviewSummary();
+                return;
+            }
+            if (revision !== undefined && revision !== brReviewVersions[idx]) return;
+            var reasons = [];
+            var targetRatio = targetW / targetH, sourceRatio = nw / nh;
+            var selectedMode = modeOverride || brFitModes[idx] || getEl('Fit').value;
+            var ratioDelta = Math.abs(Math.log(sourceRatio / targetRatio));
+            if (Math.min(nw / targetW, nh / targetH) < 0.5) reasons.push('Low resolution');
+            if (selectedMode === 'fill' && ratioDelta > 0.32) reasons.push('Crop risk');
+            else if ((selectedMode === 'auto' || selectedMode === 'smart') && ratioDelta > 0.55) reasons.push('Framing review');
+            var blurVariance = reviewBlurVariance(c);
+            if (blurVariance < 28) reasons.push('Possible blur');
+            var status = reasons.length ? 'review' : 'pass';
+            brReviewStates[idx] = { status: status, reasons: reasons, mode: selectedMode, width: nw, height: nh, blur: Math.round(blurVariance), ratioDelta: Number(ratioDelta.toFixed(3)) };
+            updateReviewCard(idx);
+            updateReviewSummary();
+        } catch (err) {
+            brReviewStates[idx] = { status: 'review', reasons: ['Could not inspect locally'] };
+            updateReviewCard(idx); updateReviewSummary();
+        } finally {
+            URL.revokeObjectURL(url);
+        }
+    }
+
+    function scheduleReviewQueue(modeOverride) {
+        if (!brFiles.length) return;
+        if (modeOverride) brFiles.forEach(function(file, idx) { brFitModes[idx] = modeOverride; });
+        brReviewRun++;
+        var token = brReviewRun;
+        clearTimeout(brReviewTimer);
+        brReviewStates = new Array(brFiles.length).fill(null);
+        brReviewActive = true;
+        brFiles.forEach(function(file, idx) { updateReviewCard(idx); });
+        updateReviewSummary();
+        var next = 0;
+        function pump() {
+            if (token !== brReviewRun || !brFiles.length) { brReviewActive = false; updateReviewSummary(); return; }
+            if (brRunning) { brReviewTimer = setTimeout(pump, 250); return; }
+            if (next >= brFiles.length) { brReviewActive = false; updateReviewSummary(); return; }
+            var idx = next++;
+            var run = function() { reviewOneFile(idx, token, modeOverride || brFitModes[idx] || getEl('Fit').value).finally(function() { brReviewTimer = setTimeout(pump, 12); }); };
+            if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 700 }); else setTimeout(run, 0);
+        }
+        pump();
+    }
+
+    function setManualReviewReject(idx) {
+        brReviewStates[idx] = { status: 'reject', reasons: ['Manually marked rejected'] };
+        updateReviewCard(idx); updateReviewSummary();
+    }
+
+    ensureReviewQueue();
 
     function revokeResultCacheEntry(k) {
         try { URL.revokeObjectURL(brPreviewResultCache[k]); } catch(e) {}
@@ -1490,19 +1650,18 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         if(s.quality && getEl('Quality')) { getEl('Quality').value = s.quality; getEl('QVal').textContent = s.quality + '%'; }
         if(s.bgRm !== undefined) getEl('BgRm').checked = s.bgRm;
         if(s.enhance !== undefined) getEl('Enhance').checked = s.enhance;
-        if(s.losslessPng !== undefined && getEl('LosslessPng')) getEl('LosslessPng').checked = s.losslessPng;
     }
 
     function saveSettings() {
         const settings = {
             fit: getEl('Fit').value, bg: getEl('Bg').value, quality: getEl('Quality') ? getEl('Quality').value : (forcedQuality*100), bgRm: getEl('BgRm').checked,
-            enhance: getEl('Enhance').checked, losslessPng: getEl('LosslessPng') ? getEl('LosslessPng').checked : undefined
+            enhance: getEl('Enhance').checked
         };
         localStorage.setItem('talabat_' + toolPrefix, JSON.stringify(settings));
     }
 
     loadSettings();
-    ['Fit', 'Bg', 'Quality', 'BgRm', 'Enhance', 'LosslessPng'].forEach(id => {
+    ['Fit', 'Bg', 'Quality', 'BgRm', 'Enhance'].forEach(id => {
         const el = getEl(id);
         if(el) el.addEventListener('change', saveSettings);
     });
@@ -1606,6 +1765,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             return !(n.endsWith('.heic') || n.endsWith('.heif')); // leave unconverted HEIC files unselected
         });
         brRejected = new Array(brFiles.length).fill(false);
+        brReviewStates = new Array(brFiles.length).fill(null);
+        brReviewVersions = new Array(brFiles.length).fill(0);
         brCrops = {};
         brFitModes = {};
         revokeResultCacheAll();
@@ -1619,6 +1780,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('Fail').textContent = '0';
         updateSelectedCount();
         renderGrid();
+        scheduleReviewQueue();
 
         if (processedFiles.length > 1000) {
             brShowToast(`Only the first 1000 of ${processedFiles.length} files were loaded (batch limit).`, 'warning');
@@ -1662,7 +1824,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             div.draggable = true;
             div.dataset.idx = idx;
             div.title = 'Drag to reorder. Click to crop: ' + file.name;
-            div.style.cssText = 'border-radius:8px;overflow:hidden;border:1px solid var(--b);background:var(--card2);cursor:pointer;display:flex;flex-direction:column;';
+            div.style.cssText = 'position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--b);background:var(--card2);cursor:pointer;display:flex;flex-direction:column;';
             div.dataset.name = file.name.toLowerCase();
             if (brSearchTerm && div.dataset.name.indexOf(brSearchTerm) === -1) div.style.display = 'none';
             if(!brSelected[idx]) div.style.opacity = '0.4';
@@ -1690,10 +1852,13 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                 brRejected[idx] = !brRejected[idx];
                 rejectBtn.classList.toggle('active');
                 div.classList.toggle('rejected');
+                if (brRejected[idx]) setManualReviewReject(idx);
+                else { brReviewStates[idx] = null; updateReviewCard(idx); scheduleReviewQueue(); }
             };
 
             var imgWrap = document.createElement('div');
-            imgWrap.style.cssText = 'width:100%;aspect-ratio:1;overflow:hidden;background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px;';
+            var previewRatio = (targetW / targetH).toFixed(4);
+            imgWrap.style.cssText = 'width:100%;aspect-ratio:' + previewRatio + ';min-height:44px;max-height:180px;overflow:hidden;background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px;';
             var img = document.createElement('img');
             img.loading = 'lazy';
             img.decoding = 'async';
@@ -1711,9 +1876,28 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             modeSelect.onclick = function(e) { e.stopPropagation(); };
             modeSelect.onchange = function(e) {
                 e.stopPropagation();
-                brFitModes[idx] = this.value;
+                var nextMode = this.value;
+                brFitModes[idx] = nextMode;
+                brReviewVersions[idx] = (brReviewVersions[idx] || 0) + 1;
+                var reviewRevision = brReviewVersions[idx];
                 delete brPreviewSrcCache[idx];
                 revokeResultCacheForIdx(idx);
+                var refreshToken = (modeSelect._refreshToken || 0) + 1;
+                modeSelect._refreshToken = refreshToken;
+                if (modeSelect._manualThumbUrl) {
+                    try { URL.revokeObjectURL(modeSelect._manualThumbUrl); } catch (err) {}
+                    modeSelect._manualThumbUrl = null;
+                }
+                buildThumb(brFiles[idx], targetW, targetH, [nextMode], toolPrefix).then(function(result) {
+                    if (modeSelect._refreshToken !== refreshToken || !document.body.contains(modeSelect)) return;
+                    modeSelect._manualThumbUrl = result.thumbUrl;
+                    img.src = result.thumbUrl;
+                }).catch(function() {});
+                reviewOneFile(idx, brReviewRun, nextMode, reviewRevision);
+                if (currentHoverIdx === idx && currentHoverPrefix === toolPrefix) {
+                    var hoverEvent = div._lastHoverEvent || { clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 };
+                    startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, nextMode, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, hoverEvent, !getEl('Quality'), brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked);
+                }
             };
 
             if (brThumbCache.has(file)) {
@@ -1738,6 +1922,19 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             }
             imgWrap.appendChild(img);
 
+            var reviewBadge = document.createElement('div');
+            reviewBadge.id = toolPrefix + '_review_' + idx;
+            reviewBadge.className = 'review-badge pending';
+            reviewBadge.textContent = '';
+            reviewBadge.style.display = 'none';
+            reviewBadge.title = 'Fast local review: checking resolution, crop risk, and blur';
+            var reviewDetail = document.createElement('div');
+            reviewDetail.id = toolPrefix + '_review_detail_' + idx;
+            reviewDetail.className = 'review-detail';
+            reviewDetail.style.display = 'none';
+            reviewDetail.title = 'Fast local review details';
+            updateReviewCard(idx);
+
             var badge = document.createElement('div');
             badge.id = `${toolPrefix}_badge_${idx}`;
             badge.textContent = '✂️';
@@ -1751,9 +1948,12 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             div.appendChild(chkWrap);
             div.appendChild(rejectBtn);
             div.appendChild(imgWrap);
+            div.appendChild(reviewBadge);
             div.appendChild(badge);
             div.appendChild(modeSelect);
+            div.appendChild(reviewDetail);
             div.appendChild(nameDiv);
+            updateReviewCard(idx);
 
             div.addEventListener('dragstart', e => {
                 e.dataTransfer.setData('text/plain', idx);
@@ -1789,8 +1989,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             });
 
             div.addEventListener('click', () => brOpenCropModal(idx));
-            div.addEventListener('mouseenter', e => startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, !getEl('Quality'), brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked));
-            div.addEventListener('mousemove', e => brMoveHoverPreview(e));
+            div.addEventListener('mouseenter', e => { div._lastHoverEvent = e; startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, !getEl('Quality'), brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked); });
+            div.addEventListener('mousemove', e => { div._lastHoverEvent = e; brMoveHoverPreview(e); });
             div.addEventListener('mouseleave', () => {
                 brStopHoverPreview();
             });
@@ -1822,28 +2022,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         });
     }
 
-    if (getEl('SearchSelectBtn')) {
-        getEl('SearchSelectBtn').addEventListener('click', function() {
-            brFiles.forEach(function(file, idx) {
-                let n = file.name.toLowerCase();
-                let isUnconvertedHeic = n.endsWith('.heic') || n.endsWith('.heif');
-                if (!isUnconvertedHeic && (!brSearchTerm || n.indexOf(brSearchTerm) !== -1)) brSelected[idx] = true;
-            });
-            renderGrid();
-            updateSelectedCount();
-        });
-    }
-
-    if (getEl('SearchDeselectBtn')) {
-        getEl('SearchDeselectBtn').addEventListener('click', function() {
-            brFiles.forEach(function(file, idx) {
-                if (!brSearchTerm || file.name.toLowerCase().indexOf(brSearchTerm) !== -1) brSelected[idx] = false;
-            });
-            renderGrid();
-            updateSelectedCount();
-        });
-    }
-
     if (getEl('ApplyAllFit')) {
         getEl('ApplyAllFit').addEventListener('click', () => {
             var v = getEl('Fit').value;
@@ -1853,25 +2031,38 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                 revokeResultCacheForIdx(idx);
             });
             renderGrid();
+            scheduleReviewQueue(v);
         });
     }
 
-    getEl('SelectAllBtn').addEventListener('click', () => {
+    if (getEl('Fit')) getEl('Fit').addEventListener('change', function() {
+        if (!brFiles.length) return;
+        var mode = this.value;
+        brFiles.forEach(function(file, idx) {
+            brFitModes[idx] = mode;
+            delete brPreviewSrcCache[idx];
+            revokeResultCacheForIdx(idx);
+        });
+        renderGrid();
+        scheduleReviewQueue(mode);
+    });
+
+    if (getEl('SelectAllBtn')) getEl('SelectAllBtn').addEventListener('click', () => {
         brSelected = brFiles.map(f => {
-            let n = f.name.toLowerCase();
-            return !(n.endsWith('.heic') || n.endsWith('.heif')); // don't re-select files that failed to convert
+            var n = f.name.toLowerCase();
+            return !(n.endsWith('.heic') || n.endsWith('.heif'));
         });
         updateSelectedCount();
         renderGrid();
     });
 
-    getEl('SelectNoneBtn').addEventListener('click', () => {
+    if (getEl('SelectNoneBtn')) getEl('SelectNoneBtn').addEventListener('click', () => {
         brSelected.fill(false);
         updateSelectedCount();
         Array.from(getEl('Grid').children).forEach(d => {
             d.style.opacity='0.4';
-            var chk = d.querySelector('input');
-            if(chk) chk.checked=false;
+            var chk = d.querySelector('input[type="checkbox"]');
+            if (chk) chk.checked=false;
         });
     });
 
@@ -1883,6 +2074,11 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         brFiles=[];
         brSelected=[];
         brRejected=[];
+        brReviewRun++;
+        brReviewActive=false;
+        brReviewStates=[];
+        brReviewVersions=[];
+        clearTimeout(brReviewTimer);
         brCrops={};
         brFitModes={};
         revokeResultCacheAll();
@@ -2223,7 +2419,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         var trimMargin = (toolPrefix === 'logo');
         var sharpenBoost = (toolPrefix === 'logo');
         var superSample = (toolPrefix === 'logo') ? 4 : 1;
-        var losslessPng = (toolPrefix === 'logo' && getEl('LosslessPng') && getEl('LosslessPng').checked);
 
         var total=filesToProcess.length, done=0, failed=0, zip=new JSZip(), singleBlob=null, singleName=null, usedNames={};
         var startTime = Date.now(), completedItems = 0;
@@ -2271,7 +2466,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                                 W:targetW, H:targetH, bg, fitMode: itemFitMode,
                                 crop:brCrops[item.origIdx]||null,
                                 quality, doBgRm, enhance, scurve, defringe, trimMargin,
-                                sharpen: isLockedQualityTool, sharpenBoost, superSample, losslessPng,
+                                sharpen: isLockedQualityTool, sharpenBoost, superSample,
                                 svgTargetW: targetW * superSample, svgTargetH: targetH * superSample
                             });
                             let baseName = "";
@@ -2279,7 +2474,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                             else if (toolPrefix === 'cov') baseName = "Resized Cover" + (doBgRm ? '_nobg' : '');
                             else baseName = item.file.name.replace(/\.[^.]+$/, '') + (doBgRm ? '_nobg' : '');
 
-                            var ext = (bg === 'transparent' || losslessPng) ? '.png' : '.jpg';
+                            var ext = '.jpg';
                             var fname = baseName + ext;
                             if (usedNames[fname]) {
                                 usedNames[fname]++;
@@ -2390,6 +2585,9 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     }
 }
 
+function isBrightNeutralPixel(r, g, b) {
+    return Math.min(r, g, b) >= 215 && (Math.max(r, g, b) - Math.min(r, g, b)) <= 28;
+}
 function isWholeImageWhiteBg(data, w, h) {
     // Samples across the full frame (not just the border) to check whether the
     // entire photo — not merely its edges/padding — sits on a white background.
@@ -2399,7 +2597,7 @@ function isWholeImageWhiteBg(data, w, h) {
     for (var y = 0; y < h; y += stepY) {
         for (var x = 0; x < w; x += stepX) {
             var i = (y * w + x) * 4;
-            if (data[i] > 235 && data[i + 1] > 235 && data[i + 2] > 235) whiteCount++;
+            if (isBrightNeutralPixel(data[i], data[i + 1], data[i + 2])) whiteCount++;
             total++;
         }
     }
