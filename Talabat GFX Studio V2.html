@@ -225,10 +225,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--org:#FF5900;--red:#B34700;--bg:#2A2D33;--card:rgba(57,61,68,0.94);--card2:rgba(72,76,84,0.9);--inp:rgba(45,49,56,0.97);--b:rgba(255,255,255,0.13);--b2:rgba(255,89,0,0.42);--t1:#F7F7F5;--t2:#C5C8CC;--t3:#A4A8AE;--r:20px;--rs:12px;--glow-org:rgba(255,89,0,0.12);--glow-red:rgba(179,71,0,0.12)}
+:root{--org:#FF5900;--red:#B34700;--bg:#25282E;--card:rgba(52,56,63,0.94);--card2:rgba(66,70,78,0.9);--inp:rgba(40,44,50,0.97);--b:rgba(255,255,255,0.13);--b2:rgba(255,89,0,0.42);--t1:#F7F7F5;--t2:#C5C8CC;--t3:#A4A8AE;--r:20px;--rs:12px;--glow-org:rgba(255,89,0,0.12);--glow-red:rgba(179,71,0,0.12)}
 body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;padding-bottom:4rem;overflow-x:hidden;position:relative}
 @keyframes floatAurora{0%{transform:translate(0,0) scale(1)}50%{transform:translate(60px,40px) scale(1.1)}100%{transform:translate(-40px,60px) scale(0.95)}}
-.header{background:rgba(43,47,54,0.96);border-bottom:1px solid var(--b);padding:0 2rem;height:68px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.header{background:rgba(38,42,48,0.96);border-bottom:1px solid var(--b);padding:0 2rem;height:68px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
 .hl{display:flex;align-items:center;gap:14px}
 .header-logo-img{height:36px;width:auto;display:block}
 @keyframes logoPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
@@ -266,7 +266,7 @@ select.fi:focus,input.fi-text:focus{border-color:var(--org);box-shadow:0 0 0 3px
 .field-label{display:block;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px}
 .settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;align-items:end;margin-bottom:1rem}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 18px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--b);background:var(--card2);color:var(--t1);transition:all .2s ease;backdrop-filter:blur(10px)}
-.btn:hover{border-color:var(--b2);background:rgba(100,104,112,0.82);transform:translateY(-1px)}
+.btn:hover{border-color:var(--b2);background:rgba(90,94,102,0.82);transform:translateY(-1px)}
 .btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
 .btn-primary{background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;box-shadow:0 4px 20px rgba(232,25,44,0.4),0 0 30px rgba(255,89,0,0.2);position:relative;overflow:hidden;transition:all 0.3s ease}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 25px rgba(232,25,44,0.5),0 0 40px rgba(255,89,0,0.3)}
@@ -1149,11 +1149,11 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
       <div style="position:relative; width:100%; aspect-ratio:3/2; min-height:210px; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
         <div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
-        <img id="hpBefore" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain;">
+        <img id="hpBefore" style="width:100%; height:100%; object-fit:contain; image-rendering:auto;">
       </div>
       <div style="position:relative; width:100%; aspect-ratio:3/2; min-height:210px; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
         <div style="position:absolute; top:4px; left:4px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
-        <img id="hpAfter" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:none;">
+        <img id="hpAfter" style="width:100%; height:100%; object-fit:contain; image-rendering:auto; display:none;">
         <div id="hpLoading" style="position:absolute; inset:0; background:rgba(40,40,55,0.9); display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:600; color:var(--t1); border-radius:8px;"><span style="font-size:18px;">🪄</span> Processing...</div>
       </div>
     </div>
@@ -1386,19 +1386,28 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
             } else {
                 var srcPromise = (async () => {
                     let pf = file, scaleUsed = 1;
-                    try {
-                        const img = await createImageBitmap(file);
-                        const MAX_SIZE = 320; // smaller preview decode = noticeably snappier hover response
-                        if (img.width > MAX_SIZE || img.height > MAX_SIZE) {
-                            scaleUsed = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
-                            const c = document.createElement('canvas');
-                            c.width = img.width * scaleUsed;
-                            c.height = img.height * scaleUsed;
-                            const ctx = c.getContext('2d');
-                            ctx.drawImage(img, 0, 0, c.width, c.height);
-                            pf = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
-                        }
-                    } catch(err) {}
+                    // Keep the original source for the normal fast preview. The old 320px
+                    // cap upscaled a small JPEG and made the AFTER panel look visibly soft.
+                    // Only background-removal previews are capped, since that optional step
+                    // is the expensive path; the main batch processor is unchanged.
+                    if (doBgRm) {
+                        try {
+                            const img = await createImageBitmap(file);
+                            const MAX_SIZE = 1280;
+                            if (img.width > MAX_SIZE || img.height > MAX_SIZE) {
+                                scaleUsed = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
+                                const c = document.createElement('canvas');
+                                c.width = Math.max(1, Math.round(img.width * scaleUsed));
+                                c.height = Math.max(1, Math.round(img.height * scaleUsed));
+                                const ctx = c.getContext('2d');
+                                ctx.imageSmoothingEnabled = true;
+                                ctx.imageSmoothingQuality = 'high';
+                                ctx.drawImage(img, 0, 0, c.width, c.height);
+                                pf = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.96));
+                            }
+                            img.close();
+                        } catch(err) {}
+                    }
                     return { file: pf, scale: scaleUsed };
                 })();
                 if (srcCache) srcCache[idx] = srcPromise;
