@@ -388,7 +388,8 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     function isEdgeUniform(canvas) {
         var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
         if (w < 10 || h < 10) return false;
-        var inset = 2, data = ctx.getImageData(0, 0, w, h).data, samples = [];
+        var inset = 2, data, samples = [];
+        try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return false; }
         for (var x = inset; x < w - inset; x += Math.max(1, Math.floor(w / 10))) { samples.push(getPx(x, inset)); samples.push(getPx(x, h - inset - 1)); }
         for (var y = inset; y < h - inset; y += Math.max(1, Math.floor(h / 10))) { samples.push(getPx(inset, y)); samples.push(getPx(w - inset - 1, y)); }
         function getPx(x, y) { var i = (y * w + x) * 4; return [data[i], data[i + 1], data[i + 2], data[i + 3]]; }
@@ -448,7 +449,11 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     }
     
     function stripWhiteBorder(canvas) {
-        var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, data = ctx.getImageData(0, 0, w, h).data, WHITE = 242;
+        var w = canvas.width, h = canvas.height;
+        if (w < 1 || h < 1) return { canvas: canvas, stripped: false };
+        var ctx = canvas.getContext('2d'), data;
+        try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return { canvas: canvas, stripped: false }; }
+        var WHITE = 242;
         function isWhiteRow(y) { for (var x = 0; x < w; x++) { var i = (y * w + x) * 4; if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) return false; } return true; }
         function isWhiteCol(x) { for (var y = 0; y < h; y++) { var i = (y * w + x) * 4; if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) return false; } return true; }
         var top = 0, bottom = h - 1, left = 0, right = w - 1;
@@ -459,8 +464,14 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         var out = createCanvas(cw, ch); out.getContext('2d').drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch); return { canvas: out, stripped: true };
     }
     
-    function detectBgType(canvas) {
-        var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, data = ctx.getImageData(0, 0, w, h).data;
+    function detectBgType(canvas, preData) {
+        var w = canvas.width, h = canvas.height;
+        if (w < 1 || h < 1) return 'scene';
+        var data = preData;
+        if (!data) {
+            var ctx = canvas.getContext('2d');
+            try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return 'scene'; }
+        }
         var samples = [], step = Math.max(1, Math.floor(Math.min(w, h) / 60));
         for (var x = 0; x < w; x += step) { var i0 = x * 4, i1 = ((h - 1) * w + x) * 4; samples.push([data[i0], data[i0+1], data[i0+2]], [data[i1], data[i1+1], data[i1+2]]); }
         for (var y = 1; y < h - 1; y += step) { var i2 = (y * w) * 4, i3 = (y * w + w - 1) * 4; samples.push([data[i2], data[i2+1], data[i2+2]], [data[i3], data[i3+1], data[i3+2]]); }
@@ -473,16 +484,28 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         if (closeCount / samples.length >= 0.70) return 'solid'; return 'scene';
     }
     
-    function getEdgeBorderColor(canvas) {
-        var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, data = ctx.getImageData(0, 0, w, h).data;
+    function getEdgeBorderColor(canvas, preData) {
+        var w = canvas.width, h = canvas.height;
+        if (w < 1 || h < 1) return 'rgb(255,255,255)';
+        var data = preData;
+        if (!data) {
+            var ctx = canvas.getContext('2d');
+            try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return 'rgb(255,255,255)'; }
+        }
         var rS = 0, gS = 0, bS = 0, n = 0, band = Math.max(3, Math.floor(Math.min(w, h) * 0.03)), step = 2;
         for (var x = Math.floor(w*0.2); x < Math.floor(w*0.8); x += step) { for (var p = 0; p < band; p++) { var iT = (p*w+x)*4; rS+=data[iT]*data[iT]; gS+=data[iT+1]*data[iT+1]; bS+=data[iT+2]*data[iT+2]; n++; var iB = ((h-1-p)*w+x)*4; rS+=data[iB]*data[iB]; gS+=data[iB+1]*data[iB+1]; bS+=data[iB+2]*data[iB+2]; n++; } }
         for (var y = Math.floor(h*0.2); y < Math.floor(h*0.8); y += step) { for (var p = 0; p < band; p++) { var iL = (y*w+p)*4; rS+=data[iL]*data[iL]; gS+=data[iL+1]*data[iL+1]; bS+=data[iL+2]*data[iL+2]; n++; var iR = (y*w+w-1-p)*4; rS+=data[iR]*data[iR]; gS+=data[iR+1]*data[iR+1]; bS+=data[iR+2]*data[iR+2]; n++; } }
         if (!n) return 'rgb(255,255,255)'; return 'rgb(' + Math.round(Math.sqrt(rS/n)) + ',' + Math.round(Math.sqrt(gS/n)) + ',' + Math.round(Math.sqrt(bS/n)) + ')';
     }
     
-    function getAvgBorderColor(canvas) {
-        var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, data = ctx.getImageData(0, 0, w, h).data;
+    function getAvgBorderColor(canvas, preData) {
+        var w = canvas.width, h = canvas.height;
+        if (w < 1 || h < 1) return 'rgb(255,255,255)';
+        var data = preData;
+        if (!data) {
+            var ctx = canvas.getContext('2d');
+            try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return 'rgb(255,255,255)'; }
+        }
         var samples = [], band = Math.max(3, Math.floor(Math.min(w, h) * 0.04)), step = 3;
         for (var x = 0; x < w; x += step) { for (var p = 0; p < band; p++) { var iT = (p*w+x)*4; samples.push([data[iT], data[iT+1], data[iT+2]]); var iB = ((h-1-p)*w+x)*4; samples.push([data[iB], data[iB+1], data[iB+2]]); } }
         for (var y = 0; y < h; y += step) { for (var p = 0; p < band; p++) { var iL = (y*w+p)*4; samples.push([data[iL], data[iL+1], data[iL+2]]); var iR = (y*w+w-1-p)*4; samples.push([data[iR], data[iR+1], data[iR+2]]); } }
@@ -514,7 +537,10 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     // instead of keeping the original photo's soft gradient/vignette shading.
     function flattenBackgroundToColor(canvas, targetColor, threshold) {
         var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
-        var imgData = ctx.getImageData(0, 0, w, h), data = imgData.data;
+        if (w < 1 || h < 1) return canvas;
+        var imgData;
+        try { imgData = ctx.getImageData(0, 0, w, h); } catch (e) { return canvas; }
+        var data = imgData.data;
         var m = parseColorToRgb(targetColor), tr = m[0], tg = m[1], tb = m[2];
         var feather = threshold * 0.6;
         for (var i = 0; i < data.length; i += 4) {
@@ -557,10 +583,16 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     }
     
     function smartSceneCrop(srcCanvas, W, H, bg) {
-      var ctx = srcCanvas.getContext('2d'), sw = srcCanvas.width, sh = srcCanvas.height, data = ctx.getImageData(0, 0, sw, sh).data;
-      var cR=data[0], cG=data[1], cB=data[2], wxS=0, wyS=0, wT=0, step=Math.max(1, Math.floor(Math.min(sw,sh)/150));
-      for(var y=0; y<sh; y+=step) for(var x=0; x<sw; x+=step){ var i=(y*sw+x)*4, r=data[i], g=data[i+1], b=data[i+2], a=data[i+3]; if(a<30) continue; var diff=Math.abs(r-cR)+Math.abs(g-cG)+Math.abs(b-cB); if(diff>25){ wxS+=x*diff; wyS+=y*diff; wT+=diff; } }
-      var subX = wT>0 ? wxS/wT : sw/2, subY = wT>0 ? wyS/wT : sh/2, scale = Math.max(W/sw, H/sh);
+      var sw = srcCanvas.width, sh = srcCanvas.height;
+      if (sw < 1 || sh < 1) return containResize(srcCanvas, W, H, bg);
+      var ctx = srcCanvas.getContext('2d'), data, subX = sw/2, subY = sh/2;
+      try {
+          data = ctx.getImageData(0, 0, sw, sh).data;
+          var cR=data[0], cG=data[1], cB=data[2], wxS=0, wyS=0, wT=0, step=Math.max(1, Math.floor(Math.min(sw,sh)/150));
+          for(var y=0; y<sh; y+=step) for(var x=0; x<sw; x+=step){ var i=(y*sw+x)*4, r=data[i], g=data[i+1], b=data[i+2], a=data[i+3]; if(a<30) continue; var diff=Math.abs(r-cR)+Math.abs(g-cG)+Math.abs(b-cB); if(diff>25){ wxS+=x*diff; wyS+=y*diff; wT+=diff; } }
+          if (wT > 0) { subX = wxS/wT; subY = wyS/wT; }
+      } catch (e) { /* fall back to centered crop */ }
+      var scale = Math.max(W/sw, H/sh);
       var dw = Math.round(sw*scale), dh = Math.round(sh*scale), dx = Math.min(0, Math.max(W-dw, Math.round(W/2 - subX*scale))), dy = Math.min(0, Math.max(H-dh, Math.round(H/2 - subY*scale)));
       var canvas = createCanvas(W, H), octx = canvas.getContext('2d');
       octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
@@ -570,7 +602,34 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     }
 
     function smartAutoResize(srcCanvas, W, H, bg) {
-      var result = stripWhiteBorder(srcCanvas), stripped = result.canvas, bgType = detectBgType(stripped);
+      try {
+        return smartAutoResizeInner(srcCanvas, W, H, bg);
+      } catch (e) {
+        // Smart-mode pixel analysis failed (corrupt/zero-size decode, memory limit, etc).
+        // Don't fail the whole job — fall back to a plain contain-fit on the background.
+        return containResize(srcCanvas, W, H, bg);
+      }
+    }
+
+    // Above this pixel count, the full-frame scans in stripWhiteBorder/detectBgType
+    // (which walk every row/column) get slow enough to stall the worker on a single
+    // huge photo. Skip straight to the cheaper edge-sampling auto-extend fit instead —
+    // still a sensible "smart-ish" result, just without the expensive per-pixel scan.
+    var SMART_ANALYSIS_MAX_PX = 20000000; // ~20 megapixels
+
+    function smartAutoResizeInner(srcCanvas, W, H, bg) {
+      if (srcCanvas.width < 1 || srcCanvas.height < 1) return containResize(srcCanvas, W, H, bg);
+      if (srcCanvas.width * srcCanvas.height > SMART_ANALYSIS_MAX_PX) return autoExtendResize(srcCanvas, W, H, bg);
+      var result = stripWhiteBorder(srcCanvas), stripped = result.canvas;
+      // Read the stripped canvas's pixels once and share them across the analysis
+      // steps below (detectBgType / saturation check / edge+avg color pickers) —
+      // they all inspect the same un-mutated canvas before any flatten happens,
+      // so there's no need to re-decode the pixel buffer 3-4 times per image.
+      var sharedData = null;
+      if (stripped.width > 0 && stripped.height > 0) {
+          try { sharedData = stripped.getContext('2d').getImageData(0, 0, stripped.width, stripped.height).data; } catch (e) { /* fall back to per-call reads */ }
+      }
+      var bgType = detectBgType(stripped, sharedData);
       if (bg === 'transparent') {
          var canvas = createCanvas(W, H), ctx = canvas.getContext('2d');
          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
@@ -597,9 +656,12 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             flattenBackgroundToColor(stripped, solidHex, 45);
             return fitOnBg(stripped, W, H, solidHex);
          }
-         var ctx2 = stripped.getContext('2d'), d2 = ctx2.getImageData(0,0,stripped.width,stripped.height).data;
-         var eR=d2[0], eG=d2[1], eB=d2[2], maxC=Math.max(eR,eG,eB), minC=Math.min(eR,eG,eB), saturation=maxC>0 ? (maxC-minC)/maxC : 0;
-         var bgColor = saturation > 0.25 ? getEdgeBorderColor(stripped) : getAvgBorderColor(stripped);
+         var eR=255, eG=255, eB=255, saturation=0;
+         if (sharedData) {
+            eR=sharedData[0]; eG=sharedData[1]; eB=sharedData[2];
+            var maxC=Math.max(eR,eG,eB), minC=Math.min(eR,eG,eB); saturation = maxC>0 ? (maxC-minC)/maxC : 0;
+         }
+         var bgColor = saturation > 0.25 ? getEdgeBorderColor(stripped, sharedData) : getAvgBorderColor(stripped, sharedData);
          flattenBackgroundToColor(stripped, bgColor, 45);
          return seamlessFit(stripped, W, H, bgColor);
       } else {
@@ -611,7 +673,9 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         const ctx = canvas.getContext('2d');
         const w = canvas.width, h = canvas.height;
         if (w * h > 4000000) return canvas;
-        const imgData = ctx.getImageData(0, 0, w, h);
+        if (w < 1 || h < 1) return canvas;
+        let imgData;
+        try { imgData = ctx.getImageData(0, 0, w, h); } catch (e) { return canvas; }
         const data = imgData.data;
         for (let y = 1; y < h - 1; y++) {
             for (let x = 1; x < w - 1; x++) {
@@ -639,7 +703,8 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         var ctx = canvas.getContext('2d');
         var w = canvas.width, h = canvas.height;
         if (w < 4 || h < 4) return canvas;
-        var data = ctx.getImageData(0, 0, w, h).data;
+        var data;
+        try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return canvas; }
         var hasAlpha = false;
         for (var i = 3; i < data.length; i += 4) { if (data[i] < 250) { hasAlpha = true; break; } }
         var minX = w, minY = h, maxX = -1, maxY = -1;
@@ -680,8 +745,13 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         bctx.filter = `blur(${radius}px)`;
         bctx.drawImage(canvas, 0, 0);
         bctx.filter = 'none';
-        var orig = ctx.getImageData(0, 0, w, h), od = orig.data;
-        var bl = bctx.getImageData(0, 0, w, h), bd = bl.data;
+        if (w < 1 || h < 1) return canvas;
+        var orig, bl;
+        try {
+            orig = ctx.getImageData(0, 0, w, h);
+            bl = bctx.getImageData(0, 0, w, h);
+        } catch (e) { return canvas; }
+        var od = orig.data, bd = bl.data;
         for (let i = 0; i < od.length; i += 4) {
             od[i] = Math.max(0, Math.min(255, od[i] + (od[i] - bd[i]) * amount));
             od[i+1] = Math.max(0, Math.min(255, od[i+1] + (od[i+1] - bd[i+1]) * amount));
@@ -811,7 +881,12 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             let finalBlob = await finalCanvas.convertToBlob({ type: getOutType(opts.bg, opts.losslessPng), quality: CURRENT_QUALITY });
             self.postMessage({ id, success: true, blob: finalBlob });
         } catch (err) {
-            self.postMessage({ id, success: false, error: err.toString() });
+            var msg = (err && err.message) ? err.message : String(err);
+            // Give a hint for the most common cause instead of a bare technical error.
+            if (/IndexSizeError|getImageData|memory/i.test(msg)) {
+                msg = 'Could not analyze this image (unsupported/corrupt file or too large). ' + msg;
+            }
+            self.postMessage({ id, success: false, error: msg });
         }
     };
 </script>
@@ -865,7 +940,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
           
           
         </div>
-        <div id="logo_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="logo_ProgBar" class="prog-bar-fill"></div></div><span id="logo_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="logo_ProgLbl" class="prog-file-name">Ready...</span><span id="logo_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span></div></div></div></div><div id="logo_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="font-weight:700;color:#ff6b7a;margin-bottom:4px;">⚠️ Some images failed:</div><div id="logo_FailList"></div></div>
+        <div id="logo_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="logo_ProgBar" class="prog-bar-fill"></div></div><span id="logo_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="logo_ProgLbl" class="prog-file-name">Ready...</span><span id="logo_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="logo_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="logo_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="logo_Left">0</strong></span></div></div></div></div><div id="logo_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><div style="font-weight:700;color:#ff6b7a;">⚠️ Some images failed:</div><button id="logo_RetryFailBtn" type="button" style="background:#ff6b7a22;border:1px solid #ff6b7a55;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;color:#ff6b7a;cursor:pointer;">🔁 Retry Failed</button></div><div id="logo_FailList"></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
             <button id="logo_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
             <button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
@@ -897,7 +972,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
           
           
         </div>
-        <div id="cov_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="cov_ProgBar" class="prog-bar-fill"></div></div><span id="cov_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="cov_ProgLbl" class="prog-file-name">Ready...</span><span id="cov_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span></div></div></div></div><div id="cov_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="font-weight:700;color:#ff6b7a;margin-bottom:4px;">⚠️ Some images failed:</div><div id="cov_FailList"></div></div>
+        <div id="cov_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="cov_ProgBar" class="prog-bar-fill"></div></div><span id="cov_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="cov_ProgLbl" class="prog-file-name">Ready...</span><span id="cov_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="cov_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="cov_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="cov_Left">0</strong></span></div></div></div></div><div id="cov_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><div style="font-weight:700;color:#ff6b7a;">⚠️ Some images failed:</div><button id="cov_RetryFailBtn" type="button" style="background:#ff6b7a22;border:1px solid #ff6b7a55;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;color:#ff6b7a;cursor:pointer;">🔁 Retry Failed</button></div><div id="cov_FailList"></div></div>
         <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
             <button id="cov_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
             <button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
@@ -930,7 +1005,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         
         
       </div>
-      <div id="img_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="img_ProgBar" class="prog-bar-fill"></div></div><span id="img_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="img_ProgLbl" class="prog-file-name">Ready...</span><span id="img_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span></div></div></div></div><div id="img_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="font-weight:700;color:#ff6b7a;margin-bottom:4px;">⚠️ Some images failed:</div><div id="img_FailList"></div></div>
+      <div id="img_ProgWrap" style="display:none"><div class="prog-block"><div class="prog-top"><div class="prog-bar-track"><div id="img_ProgBar" class="prog-bar-fill"></div></div><span id="img_ProgPct" class="prog-pct-badge">0%</span></div><div class="prog-bottom"><span id="img_ProgLbl" class="prog-file-name">Ready...</span><span id="img_ETA" class="prog-eta">--</span><div class="prog-counters"><span style="color:#4ade80">✓ <strong id="img_Done">0</strong></span><span style="color:#ff6b7a">✕ <strong id="img_Fail">0</strong></span><span style="color:var(--org)">⏳ <strong id="img_Left">0</strong></span></div></div></div></div><div id="img_FailSummary" style="display:none;margin-top:10px;padding:10px 12px;border:1px solid #ff6b7a55;border-radius:8px;background:#ff6b7a11;font-size:11px;line-height:1.6;max-height:160px;overflow-y:auto;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><div style="font-weight:700;color:#ff6b7a;">⚠️ Some images failed:</div><button id="img_RetryFailBtn" type="button" style="background:#ff6b7a22;border:1px solid #ff6b7a55;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;color:#ff6b7a;cursor:pointer;">🔁 Retry Failed</button></div><div id="img_FailList"></div></div>
       <div style="display:flex;gap:10px;margin-bottom:1.25rem; flex-wrap:wrap;">
           <button id="img_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
           <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
@@ -1391,6 +1466,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     var brCropDragging=false, brCropDragX=0, brCropDragY=0, brCropOffSX=0, brCropOffSY=0, brCropActivePtr=null;
     var processedBlobs = [];
     var brSearchTerm = '';
+    var brLastFailedFiles = []; // File object refs, not indices — indices can go stale after drag-reorder
 
     function revokeResultCacheEntry(k) {
         try { URL.revokeObjectURL(brPreviewResultCache[k]); } catch(e) {}
@@ -1813,6 +1889,9 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         brPreviewSrcCache={};
         brPreviewResultCache={};
         processedBlobs=[];
+        brLastFailedFiles=[];
+        if (getEl('FailSummary')) getEl('FailSummary').style.display='none';
+        if (getEl('FailList')) getEl('FailList').innerHTML='';
         getEl('Stats').style.display='none';
         getEl('Grid').innerHTML='';
         getEl('Input').value='';
@@ -2116,9 +2195,20 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
 
     getEl('StopBtn').addEventListener('click', () => brStopped=true);
 
-    getEl('StartBtn').addEventListener('click', async () => {
+    async function runBatch(restrictToFiles) {
         var filesToProcess = brFiles.map((f, i) => brSelected[i] ? {file:f, origIdx:i} : null).filter(Boolean);
-        if(!filesToProcess.length || brRunning) return;
+        if (restrictToFiles && restrictToFiles.length) {
+            var restrictSet = new Set(restrictToFiles);
+            // Match by File object reference, not index — indices can shift if the
+            // user drag-reorders the grid between a failed run and clicking Retry.
+            filesToProcess = filesToProcess.filter(item => restrictSet.has(item.file));
+        }
+        if(!filesToProcess.length || brRunning) {
+            if (restrictToFiles && restrictToFiles.length && !filesToProcess.length && !brRunning) {
+                brShowToast('The previously-failed files are no longer selected — nothing to retry.', 'error');
+            }
+            return;
+        }
         var doBgRm = getEl('BgRm') && getEl('BgRm').checked;
         brRunning=true;
         brStopped=false;
@@ -2141,7 +2231,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         var failedItems = [];
         if (getEl('FailSummary')) getEl('FailSummary').style.display = 'none';
 
-        const MAX_CONCURRENT = 4;
+        const MAX_CONCURRENT = Math.min(6, Math.max(2, (navigator.hardwareConcurrency || 4) - 1));
         let activeWorkers = 0;
         let queueIndex = 0;
 
@@ -2210,7 +2300,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                             getEl('Fail').textContent = failed;
                             console.error("Processing error:", err);
                             let reason = (err && err.message) ? err.message : 'unknown error';
-                            failedItems.push({ name: item.file.name, reason: reason });
+                            failedItems.push({ name: item.file.name, reason: reason, fileRef: item.file });
                             brShowToast(`❌ Failed on ${item.file.name}: ${reason}`, 'error');
                         }
                     })().finally(() => {
@@ -2284,10 +2374,20 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             brShowToast('No images were successfully processed.', 'error');
         }
 
+        brLastFailedFiles = failedItems.map(f => f.fileRef);
+
         getEl('StartBtn').disabled=false;
         getEl('StopBtn').style.display='none';
         brRunning=false;
-    });
+    }
+
+    getEl('StartBtn').addEventListener('click', () => runBatch());
+    if (getEl('RetryFailBtn')) {
+        getEl('RetryFailBtn').addEventListener('click', () => {
+            if (!brLastFailedFiles.length) return;
+            runBatch(brLastFailedFiles);
+        });
+    }
 }
 
 function isWholeImageWhiteBg(data, w, h) {
