@@ -678,14 +678,14 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             flattenBackgroundToColor(stripped, solidHex, 45);
             return fitOnBg(stripped, W, H, solidHex);
          }
-         var eR=255, eG=255, eB=255, saturation=0;
-         if (sharedData) {
-            eR=sharedData[0]; eG=sharedData[1]; eB=sharedData[2];
-            var maxC=Math.max(eR,eG,eB), minC=Math.min(eR,eG,eB); saturation = maxC>0 ? (maxC-minC)/maxC : 0;
-         }
-         var bgColor = saturation > 0.25 ? getEdgeBorderColor(stripped, sharedData) : getAvgBorderColor(stripped, sharedData);
-         flattenBackgroundToColor(stripped, bgColor, 45);
-         return seamlessFit(stripped, W, H, bgColor);
+         // White (JPG) is an explicit user-selected output background. Do not
+         // substitute a sampled gray/blue photo border here: that makes pale
+         // subjects such as milk, cups, and foam lose contrast in Smart Auto.
+         // The source image remains intact except for the conservative backdrop
+         // flattening already used by the white-background branch above.
+         var whiteBg = bgHex(bg);
+         flattenBackgroundToColor(stripped, whiteBg, 45);
+         return seamlessFit(stripped, W, H, whiteBg);
       } else {
          return smartSceneCrop(stripped, W, H, bg);
       }
@@ -1912,7 +1912,10 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             if (brThumbCache.has(file)) {
                 var cachedThumb = brThumbCache.get(file);
                 img.src = cachedThumb.thumbUrl;
-                if (brFitModes[idx] === undefined && cachedThumb.suggestedMode) {
+                // Auto-suggestions are only allowed while the global control is
+                // Smart Auto. A persisted or explicitly selected Fit/Fill mode
+                // must remain authoritative even when thumbnails finish later.
+                if (brFitModes[idx] === undefined && cachedThumb.suggestedMode && (getEl('Fit').value === 'smart' || getEl('Fit').value === 'auto')) {
                     brFitModes[idx] = cachedThumb.suggestedMode;
                     modeSelect.value = cachedThumb.suggestedMode;
                 }
@@ -1921,7 +1924,10 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                 buildThumb(file, targetW, targetH, availableModes, toolPrefix).then(function(result) {
                     brThumbCache.set(file, result);
                     img.src = result.thumbUrl;
-                    if (brFitModes[idx] === undefined && result.suggestedMode) {
+                    // Do not let a late thumbnail suggestion replace a global
+                    // Fit/Fill choice. Smart Auto is the only mode that opts into
+                    // per-image automatic suggestions.
+                    if (brFitModes[idx] === undefined && result.suggestedMode && (getEl('Fit').value === 'smart' || getEl('Fit').value === 'auto')) {
                         brFitModes[idx] = result.suggestedMode;
                         modeSelect.value = result.suggestedMode;
                     }
