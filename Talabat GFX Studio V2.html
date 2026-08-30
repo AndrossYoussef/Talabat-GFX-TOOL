@@ -674,6 +674,42 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         return out;
     }
 
+    function measureSharpness(canvas) {
+        // Cheap Laplacian-style edge-energy estimate on a sampled grid of grayscale
+        // pixels. Higher = crisper/more detail already present; lower = softer/blurrier.
+        var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+        var step = Math.max(2, Math.floor(Math.min(w, h) / 100));
+        if (w <= step * 2 || h <= step * 2) return 20; // too small to sample meaningfully — assume middling
+        var data;
+        try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return 20; }
+        function gray(x, y) { var i = (y * w + x) * 4; return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114; }
+        var sum = 0, count = 0;
+        for (var y = step; y < h - step; y += step) {
+            for (var x = step; x < w - step; x += step) {
+                var c = gray(x, y);
+                sum += Math.abs(4 * c - gray(x - step, y) - gray(x + step, y) - gray(x, y - step) - gray(x, y + step));
+                count++;
+            }
+        }
+        return count ? sum / count : 20;
+    }
+
+    function computeAutoSharpen(canvas, upscaleRatio) {
+        // Two independent signals feed into the auto amount:
+        //  - softness: how blurry the image already measures (crisp source photos
+        //    need little to no help; already-soft ones get more)
+        //  - upscaleRatio: how much the crop forced us to stretch source pixels to
+        //    fill the target size (heavier upscale = softer result = needs more)
+        // Both are clamped so a bad measurement can't push sharpening into halo territory.
+        var sharpness = measureSharpness(canvas);
+        var softness = Math.max(0, Math.min(1, (18 - sharpness) / 18));
+        var upscaleFactor = Math.max(0, Math.min(1, ((upscaleRatio || 1) - 1) / 1.5));
+        var amount = 0.25 + 0.45 * softness + 0.35 * upscaleFactor;
+        amount = Math.max(0.2, Math.min(1.0, amount));
+        var radiusBoost = upscaleFactor > 0.3 ? 1 : 0;
+        return { amount: amount, radiusBoost: radiusBoost };
+    }
+
     function unsharpMask(canvas, amount, radius) {
         var w = canvas.width, h = canvas.height;
         if (w * h > 9000000) return canvas;
@@ -750,22 +786,13 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             if (opts.crop) {
                 let rot = opts.crop.rot || 0;
                 let cropRect = { x: opts.crop.x, y: opts.crop.y, w: opts.crop.w, h: opts.crop.h };
-                
+
+                // The crop rect (x,y,w,h) is captured in the crop editor AFTER rotation has
+                // already been baked into the preview image (see applyRotation() in the main
+                // thread), so it's expressed in rotated-image coordinate space. To line up,
+                // rotate the source canvas first, then crop directly — no coordinate remapping.
                 if (rot !== 0) {
-                    let origW = canvas.width, origH = canvas.height;
-                    let x = cropRect.x, y = cropRect.y, w = cropRect.w, h = cropRect.h;
                     rot = ((rot % 360) + 360) % 360;
-                    
-                    if (rot === 90) {
-                        cropRect = { x: y, y: origW - x - w, w: h, h: w };
-                    } else if (rot === 180) {
-                        cropRect = { x: origW - x - w, y: origH - y - h, w: w, h: h };
-                    } else if (rot === 270) {
-                        cropRect = { x: origH - y - h, y: x, w: h, h: w };
-                    }
-                    
-                    canvas = brCropRectCanvas(canvas, cropRect);
-                    
                     let rad = rot * Math.PI / 180;
                     let sw = canvas.width, sh = canvas.height;
                     let absSin = Math.abs(Math.sin(rad)), absCos = Math.abs(Math.cos(rad));
@@ -775,9 +802,9 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
                     rctx.rotate(rad);
                     rctx.drawImage(canvas, -sw / 2, -sh / 2);
                     canvas = rc;
-                } else {
-                    canvas = brCropRectCanvas(canvas, cropRect);
                 }
+
+                canvas = brCropRectCanvas(canvas, cropRect);
             }
             
             if (opts.trimMargin) canvas = trimContentMargin(canvas);
@@ -785,6 +812,10 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             let finalCanvas;
             var ss = (opts.superSample && opts.superSample > 1) ? opts.superSample : 1;
             var rW = opts.W * ss, rH = opts.H * ss;
+            // How much the crop's own pixels have to stretch to fill the target frame —
+            // >1 means we're enlarging beyond source detail, which is the main driver of
+            // a soft/pixelated result and feeds the auto-sharpen amount below.
+            var upscaleRatio = Math.max(opts.W / canvas.width, opts.H / canvas.height);
             if (opts.fitMode === 'smart') finalCanvas = smartAutoResize(canvas, rW, rH, opts.bg);
             else if (opts.fitMode === 'auto') finalCanvas = autoExtendResize(canvas, rW, rH, opts.bg);
             else if (opts.fitMode === 'fill') finalCanvas = coverResize(canvas, rW, rH, opts.bg);
@@ -808,8 +839,9 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             if (opts.defringe && (opts.doBgRm || opts.bg === 'transparent')) finalCanvas = defringeAndSpillSuppress(finalCanvas);
             if (opts.enhance || opts.scurve) finalCanvas = applyColorScience(finalCanvas, opts.scurve, opts.enhance);
             if (opts.sharpen) {
-                var sharpRadius = Math.max(1, Math.round(Math.min(opts.W, opts.H) / 500));
-                var sharpAmount = opts.sharpenBoost ? 0.9 : 0.5;
+                var auto = computeAutoSharpen(finalCanvas, upscaleRatio);
+                var sharpRadius = Math.max(1, Math.round(Math.min(opts.W, opts.H) / 500)) + auto.radiusBoost;
+                var sharpAmount = opts.sharpenBoost ? Math.max(0.9, auto.amount) : auto.amount;
                 finalCanvas = unsharpMask(finalCanvas, sharpAmount, sharpRadius);
             }
             
@@ -897,7 +929,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         </div>
         <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
           <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="cov_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="cov_Enhance" checked style="accent-color:var(--org)"> 🍔 Food Enhance</label>
           
           
         </div>
@@ -940,7 +972,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       </div>
       <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
         <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
-        <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="img_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="img_Enhance" checked style="accent-color:var(--org)"> 🍔 Food Enhance</label>
         
         
       </div>
@@ -1208,11 +1240,12 @@ function getWorker() {
 
 function processViaWorker(file, opts) {
     var isSvg = (file.type === 'image/svg+xml') || /\.svg$/i.test(file.name || '');
-    // For SVGs, request a specific width only — the browser preserves the source's own
-    // aspect ratio when just one dimension is given, avoiding a stretched/distorted rasterization.
+    // imageOrientation:'from-image' makes sure phone-camera photos that store an EXIF
+    // rotation flag (very common for portrait shots) get decoded already right-side-up,
+    // instead of relying on a browser default that has varied across versions.
     var bitmapPromise = (isSvg && opts.svgTargetW)
-        ? createImageBitmap(file, { resizeWidth: opts.svgTargetW, resizeQuality: 'high' }).catch(() => createImageBitmap(file))
-        : createImageBitmap(file);
+        ? createImageBitmap(file, { resizeWidth: opts.svgTargetW, resizeQuality: 'high', imageOrientation: 'from-image' }).catch(() => createImageBitmap(file, { imageOrientation: 'from-image' }))
+        : createImageBitmap(file, { imageOrientation: 'from-image' });
     return bitmapPromise.then(bitmap => {
         return new Promise((resolve, reject) => {
             const id = msgId++;
@@ -1303,23 +1336,11 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
             if (srcCache && srcCache[idx]) {
                 previewData = await srcCache[idx];
             } else {
-                var srcPromise = (async () => {
-                    let pf = file, scaleUsed = 1;
-                    try {
-                        const img = await createImageBitmap(file);
-                        const MAX_SIZE = 320; // smaller preview decode = noticeably snappier hover response
-                        if (img.width > MAX_SIZE || img.height > MAX_SIZE) {
-                            scaleUsed = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
-                            const c = document.createElement('canvas');
-                            c.width = img.width * scaleUsed;
-                            c.height = img.height * scaleUsed;
-                            const ctx = c.getContext('2d');
-                            ctx.drawImage(img, 0, 0, c.width, c.height);
-                            pf = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
-                        }
-                    } catch(err) {}
-                    return { file: pf, scale: scaleUsed };
-                })();
+                // Use the original file at full resolution — an earlier version pre-shrank
+                // this to a 320px thumbnail for speed, but that meant every preview went
+                // through two lossy resize+recompress passes (shrink, then crop/resize again),
+                // which visibly softened detail and shifted contrast versus the real export.
+                var srcPromise = Promise.resolve({ file: file, scale: 1 });
                 if (srcCache) srcCache[idx] = srcPromise;
                 previewData = await srcPromise;
             }
@@ -1342,7 +1363,7 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
                 defringe: doBgRm || (prefix === 'logo' && bg === 'transparent'),
                 trimMargin: (prefix === 'logo'),
                 sharpenBoost: (prefix === 'logo'),
-                superSample: 1, // full supersampling is for final export quality; skip it here so the preview renders fast
+                superSample: (prefix === 'logo') ? 4 : 3,
                 losslessPng: (prefix === 'logo' && document.getElementById('logo_LosslessPng') && document.getElementById('logo_LosslessPng').checked)
             });
             if (myGen !== hoverGeneration) return; // a newer hover started while this was computing — drop this result
@@ -1887,7 +1908,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             });
 
             div.addEventListener('click', () => brOpenCropModal(idx));
-            div.addEventListener('mouseenter', e => startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, !getEl('Quality'), brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked));
+            div.addEventListener('mouseenter', e => startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, true, brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked));
             div.addEventListener('mousemove', e => brMoveHoverPreview(e));
             div.addEventListener('mouseleave', () => {
                 brStopHoverPreview();
@@ -2312,12 +2333,15 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('ProgWrap').style.display='block';
         var bg = getEl('Bg').value, defaultFitMode = getEl('Fit').value;
         var quality = 1.0;
-        var isLockedQualityTool = !getEl('Quality');
         var enhance = getEl('Enhance').checked, scurve = false;
         var defringe = doBgRm || (toolPrefix === 'logo' && bg === 'transparent');
         var trimMargin = (toolPrefix === 'logo');
         var sharpenBoost = (toolPrefix === 'logo');
-        var superSample = (toolPrefix === 'logo') ? 4 : 1;
+        // Apply a light supersampled resize + unsharp pass to every tool, not just logos —
+        // photos benefit from this at least as much as flat-color logo art, and skipping it
+        // for menu/cover images was producing visibly softer output.
+        var superSample = (toolPrefix === 'logo') ? 4 : 3;
+        var sharpenOutput = true;
         var losslessPng = (toolPrefix === 'logo' && getEl('LosslessPng') && getEl('LosslessPng').checked);
 
         var total=filesToProcess.length, done=0, failed=0, zip=new JSZip(), singleBlob=null, singleName=null, usedNames={};
@@ -2366,7 +2390,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                                 W:targetW, H:targetH, bg, fitMode: itemFitMode,
                                 crop:brCrops[item.origIdx]||null,
                                 quality, doBgRm, enhance, scurve, defringe, trimMargin,
-                                sharpen: isLockedQualityTool, sharpenBoost, superSample, losslessPng,
+                                sharpen: sharpenOutput, sharpenBoost, superSample, losslessPng,
                                 svgTargetW: targetW * superSample, svgTargetH: targetH * superSample
                             });
                             let baseName = "";
@@ -2527,7 +2551,7 @@ function suggestFitMode(canvas, nw, nh, targetW, targetH, availableModes, toolPr
 }
 
 async function buildThumb(file, targetW, targetH, availableModes, toolPrefix) {
-    var bitmap = await createImageBitmap(file);
+    var bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     var nw = bitmap.width, nh = bitmap.height;
     var thumbMax = 220;
     var scale = Math.min(1, thumbMax / Math.max(nw, nh));
