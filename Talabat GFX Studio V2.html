@@ -450,12 +450,31 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     }
     
     function stripWhiteBorder(canvas) {
+        // Finds the tightest bounding box around non-white content and crops to it.
+        // Uses a true per-pixel content bbox (like trimContentMargin) rather than an
+        // edge-by-edge full-row/full-column scan: the old approach required an ENTIRE
+        // row/column to be pure white before trimming past it, so a single stray
+        // non-white pixel near one edge (a faint shadow, a reflection, a compression
+        // artifact) — even if it's clearly still "background" — would halt that edge's
+        // scan immediately while the opposite edge kept trimming freely. That produced
+        // lopsided crops (tight on one side, a leftover white margin on the other),
+        // which downstream centering logic then centers as if it were real content —
+        // pushing the actual subject off-center in the final image.
         var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, data = ctx.getImageData(0, 0, w, h).data, WHITE = 242;
-        function isWhiteRow(y) { for (var x = 0; x < w; x++) { var i = (y * w + x) * 4; if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) return false; } return true; }
-        function isWhiteCol(x) { for (var y = 0; y < h; y++) { var i = (y * w + x) * 4; if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) return false; } return true; }
-        var top = 0, bottom = h - 1, left = 0, right = w - 1;
-        while (top < h - 1 && isWhiteRow(top)) top++; while (bottom > top && isWhiteRow(bottom)) bottom--;
-        while (left < w - 1 && isWhiteCol(left)) left++; while (right > left && isWhiteCol(right)) right--;
+        var minX = w, minY = h, maxX = -1, maxY = -1;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var i = (y * w + x) * 4;
+                if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (maxX < minX || maxY < minY) return { canvas: canvas, stripped: false }; // blank/all-white image
+        var top = minY, bottom = maxY, left = minX, right = maxX;
         if (top < 2 && left < 2 && bottom > h - 3 && right > w - 3) return { canvas: canvas, stripped: false };
         var cw = right - left + 1, ch = bottom - top + 1; if (cw < 10 || ch < 10) return { canvas: canvas, stripped: false };
         var out = createCanvas(cw, ch); out.getContext('2d').drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch); return { canvas: out, stripped: true };
@@ -558,12 +577,34 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       return canvas;
     }
     
-    function smartSceneCrop(srcCanvas, W, H, bg) {
+    function smartSceneCrop(srcCanvas, W, H, bg, maxCropRatio) {
       var ctx = srcCanvas.getContext('2d'), sw = srcCanvas.width, sh = srcCanvas.height, data = ctx.getImageData(0, 0, sw, sh).data;
       var cR=data[0], cG=data[1], cB=data[2], wxS=0, wyS=0, wT=0, step=Math.max(1, Math.floor(Math.min(sw,sh)/150));
       for(var y=0; y<sh; y+=step) for(var x=0; x<sw; x+=step){ var i=(y*sw+x)*4, r=data[i], g=data[i+1], b=data[i+2], a=data[i+3]; if(a<30) continue; var diff=Math.abs(r-cR)+Math.abs(g-cG)+Math.abs(b-cB); if(diff>25){ wxS+=x*diff; wyS+=y*diff; wT+=diff; } }
-      var subX = wT>0 ? wxS/wT : sw/2, subY = wT>0 ? wyS/wT : sh/2, scale = Math.max(W/sw, H/sh);
-      var dw = Math.round(sw*scale), dh = Math.round(sh*scale), dx = Math.min(0, Math.max(W-dw, Math.round(W/2 - subX*scale))), dy = Math.min(0, Math.max(H-dh, Math.round(H/2 - subY*scale)));
+      var subX = wT>0 ? wxS/wT : sw/2, subY = wT>0 ? wyS/wT : sh/2;
+      var containScale = Math.min(W/sw, H/sh), coverScale = Math.max(W/sw, H/sh);
+      // A full cover-crop (coverScale) fills the frame completely but chops off whatever
+      // doesn't fit — for a tall/narrow product shot in a squarer frame that can mean
+      // guillotining the top of a drink or the base of a cup. Cap how much gets cropped
+      // (default 18%) and fall back toward a contain-style fit for the remainder, so most
+      // of the product survives even when its proportions don't match the frame well.
+      var cap = (typeof maxCropRatio === 'number') ? maxCropRatio : 0.18;
+      var scale = coverScale;
+      if (coverScale > containScale) {
+        var fullCropFrac = 1 - (containScale / coverScale);
+        if (fullCropFrac > cap) scale = containScale / (1 - cap);
+      }
+      var dw = Math.round(sw*scale), dh = Math.round(sh*scale);
+      // Center the crop on the frame first, then only nudge toward the subject's weighted
+      // centroid within a limited radius. A raw centroid-only offset can be dragged far off
+      // to one side by shadows/reflections/garnish, pushing the subject to an edge instead of
+      // keeping it near the middle. Capping the nudge keeps the "smart" recentering subtle.
+      var dxCenter = Math.round((W - dw) / 2), dyCenter = Math.round((H - dh) / 2);
+      var dxSubject = Math.round(W / 2 - subX * scale), dySubject = Math.round(H / 2 - subY * scale);
+      var maxShiftX = Math.round(W * 0.15), maxShiftY = Math.round(H * 0.15);
+      var dxNudged = Math.max(dxCenter - maxShiftX, Math.min(dxCenter + maxShiftX, dxSubject));
+      var dyNudged = Math.max(dyCenter - maxShiftY, Math.min(dyCenter + maxShiftY, dySubject));
+      var dx = Math.min(0, Math.max(W-dw, dxNudged)), dy = Math.min(0, Math.max(H-dh, dyNudged));
       var canvas = createCanvas(W, H), octx = canvas.getContext('2d');
       octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
       if (bg !== 'transparent') { octx.fillStyle = bgHex(bg); octx.fillRect(0, 0, W, H); }
@@ -588,10 +629,11 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
          var containScale = Math.min(W / stripped.width, H / stripped.height);
          var coverScale = Math.max(W / stripped.width, H / stripped.height);
          var paddingRatio = 1 - (containScale / coverScale);
-         if (paddingRatio > 0.35) {
+         if (paddingRatio > 0.55) {
             // Aspect ratio mismatch too severe (e.g. portrait photo into a landscape frame) —
             // a contain-fit here would produce mostly solid padding with the subject squeezed
-            // into a thin strip. Crop into the subject instead of padding around it.
+            // into a thin strip. Crop into the subject instead of padding around it (with its
+            // own internal cap on how much gets cropped — see smartSceneCrop).
             return smartSceneCrop(stripped, W, H, bg);
          }
          if (bg !== 'white') {
@@ -2539,7 +2581,7 @@ function suggestFitMode(canvas, nw, nh, targetW, targetH, availableModes, toolPr
     if (toolPrefix === 'img' && availableModes.indexOf('fit') >= 0 && isWholeImageWhiteBg(data, w, h)) return 'fit';
 
     var preferred;
-    if (paddingRatio > 0.35) preferred = ['fill', 'smart'];
+    if (paddingRatio > 0.55) preferred = ['fill', 'smart'];
     else if (isWhiteBg) preferred = ['smart', 'fit'];
     else if (isUniform) preferred = ['smart', 'fit'];
     else preferred = ['smart', 'fill'];
