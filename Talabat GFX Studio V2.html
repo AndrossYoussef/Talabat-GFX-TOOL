@@ -647,16 +647,6 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
          flattenBackgroundToColor(stripped, bgColor, 45);
          return seamlessFit(stripped, W, H, bgColor);
       } else {
-         // Scene background (dark, gradient, or complex) — try a smart crop-to-fill,
-         // but only if the aspect ratios aren't wildly mismatched. A very tall/narrow
-         // product (e.g. a can) in a landscape frame would lose most of the subject
-         // even with the crop cap — use a contain fit instead.
-         var containScale2 = Math.min(W / stripped.width, H / stripped.height);
-         var coverScale2 = Math.max(W / stripped.width, H / stripped.height);
-         var paddingRatio2 = 1 - (containScale2 / coverScale2);
-         if (paddingRatio2 > 0.40) {
-            return fitOnBg(stripped, W, H, bgHex(bg));
-         }
          return smartSceneCrop(stripped, W, H, bg);
       }
     }
@@ -959,7 +949,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             <button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
         </div>
         <div id="logo_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
-        <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;margin:1rem auto;display:block;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="logo_CropModalTitle">✂️ Smart Crop</div><button id="logo_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="logo_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(55vh,420px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="logo_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="logo_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="logo_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="logo_ZoomIn" class="btn crop-icon-btn">+</button><span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="logo_FitBtn" class="btn">⛶ Fit</button><button id="logo_FillBtn" class="btn">⬛ Fill</button><button id="logo_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="logo_RotL" class="btn crop-icon-btn">↺</button><button id="logo_RotR" class="btn crop-icon-btn">↻</button><span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="logo_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="logo_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+        <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="logo_CropModalTitle">✂️ Smart Crop</div><button id="logo_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="logo_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="logo_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="logo_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="logo_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="logo_ZoomIn" class="btn crop-icon-btn">+</button><span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="logo_FitBtn" class="btn">⛶ Fit</button><button id="logo_FillBtn" class="btn">⬛ Fill</button><button id="logo_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="logo_RotL" class="btn crop-icon-btn">↺</button><button id="logo_RotR" class="btn crop-icon-btn">↻</button><span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="logo_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="logo_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
 
@@ -991,7 +981,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             <button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
         </div>
         <div id="cov_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
-        <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;margin:1rem auto;display:block;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="cov_CropModalTitle">✂️ Smart Crop</div><button id="cov_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="cov_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(55vh,420px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="cov_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="cov_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="cov_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="cov_ZoomIn" class="btn crop-icon-btn">+</button><span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="cov_FitBtn" class="btn">⛶ Fit</button><button id="cov_FillBtn" class="btn">⬛ Fill</button><button id="cov_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="cov_RotL" class="btn crop-icon-btn">↺</button><button id="cov_RotR" class="btn crop-icon-btn">↻</button><span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="cov_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="cov_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+        <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="cov_CropModalTitle">✂️ Smart Crop</div><button id="cov_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="cov_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="cov_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="cov_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="cov_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="cov_ZoomIn" class="btn crop-icon-btn">+</button><span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="cov_FitBtn" class="btn">⛶ Fit</button><button id="cov_FillBtn" class="btn">⬛ Fill</button><button id="cov_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="cov_RotL" class="btn crop-icon-btn">↺</button><button id="cov_RotR" class="btn crop-icon-btn">↻</button><span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="cov_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="cov_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
   </div>
@@ -1025,7 +1015,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
           <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;"><input type="text" id="img_Search" class="fi-text" placeholder="🔎 Search files by name..." style="flex:1;min-width:180px;padding:8px 12px;font-size:12px;"><button id="img_SearchSelectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Select shown</button><button id="img_SearchDeselectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Deselect shown</button></div><div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
-      <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;margin:1rem auto;display:block;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(55vh,420px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+      <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
     </div>
   </div>
 
@@ -1137,20 +1127,20 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     </div>
   </div>
 
-  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:16px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:min(920px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); box-sizing:border-box; overflow:auto; backdrop-filter:blur(8px); pointer-events:none;">
-    <div style="font-size:10px; font-weight:700; color:var(--t2); margin-bottom:10px; text-align:center; text-transform:uppercase; letter-spacing:1px;">Before / After Preview</div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%;">
-      <div style="position:relative; width:100%; aspect-ratio:3/2; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <div style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 8px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
+  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:12px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:min(700px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); box-sizing:border-box; overflow:auto; backdrop-filter:blur(8px); pointer-events:none;">
+    <div style="font-size:10px; font-weight:700; color:var(--t2); margin-bottom:8px; text-align:center; text-transform:uppercase; letter-spacing:1px;">Before / After Preview</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
+      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
         <img id="hpBefore" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain;">
       </div>
-      <div style="position:relative; width:100%; aspect-ratio:3/2; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <div style="position:absolute; top:6px; left:6px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 8px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
+      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; top:4px; left:4px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
         <img id="hpAfter" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:none;">
         <div id="hpLoading" style="position:absolute; inset:0; background:rgba(40,40,55,0.9); display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:600; color:var(--t1); border-radius:8px;"><span style="font-size:18px;">🪄</span> Processing...</div>
       </div>
     </div>
-    <div id="hpFileName" style="margin-top:10px; font-size:12px; font-weight:600; color:var(--t1); text-align:center; word-break:break-all; line-height:1.4;"></div>
+    <div id="hpFileName" style="margin-top:8px; font-size:12px; font-weight:600; color:var(--t1); text-align:center; word-break:break-all; line-height:1.4;"></div>
   </div>
 
   <div id="guidelinesOverlay" class="mockup-overlay">
@@ -1337,7 +1327,7 @@ document.addEventListener('keydown', (e) => {
         }
         ['logo', 'cov', 'img'].forEach(prefix => {
             const modal = document.getElementById(prefix + '_CropModal');
-            if (modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
+            if (modal && modal.style.display === 'flex') {
                 document.getElementById(prefix + '_CropCancelBtn').click();
             }
         });
@@ -1460,6 +1450,15 @@ function brStopHoverPreview() {
     a.style.display = 'none';
 }
 
+// Hide the Before/After preview tooltip on any page scroll so it doesn't
+// stay frozen in the wrong position while the page moves underneath it.
+window.addEventListener('scroll', function() {
+    var box = document.getElementById('hoverPreviewTooltip');
+    if (box && box.style.display === 'block') {
+        brStopHoverPreview();
+    }
+}, { passive: true });
+
 function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     const getEl = id => document.getElementById(toolPrefix + '_' + id);
     var brFiles=[], brSelected=[], brRejected=[], brStopped=false, brRunning=false, brCrops={};
@@ -1471,8 +1470,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     var brCropDragging=false, brCropDragX=0, brCropDragY=0, brCropOffSX=0, brCropOffSY=0, brCropActivePtr=null;
     var processedBlobs = [];
     var brSearchTerm = '';
-
-    function refreshSmartReview() { /* Smart Review removed */ }
 
     function revokeResultCacheEntry(k) {
         try { URL.revokeObjectURL(brPreviewResultCache[k]); } catch(e) {}
@@ -1519,7 +1516,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                 revokeResultCacheForIdx(idx);
             });
             renderGrid();
-            refreshSmartReview('mode changed');
         });
     });
     if (getEl('Quality')) {
@@ -1636,7 +1632,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('Fail').textContent = '0';
         updateSelectedCount();
         renderGrid();
-        refreshSmartReview('files loaded');
 
         if (processedFiles.length > 1000) {
             brShowToast(`Only the first 1000 of ${processedFiles.length} files were loaded (batch limit).`, 'warning');
@@ -1732,7 +1727,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                 brFitModes[idx] = this.value;
                 delete brPreviewSrcCache[idx];
                 revokeResultCacheForIdx(idx);
-                refreshSmartReview('per-image mode changed', idx);
             };
 
             if (brThumbCache.has(file)) {
@@ -1763,8 +1757,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             badge.style.cssText = 'display:none;position:absolute;top:2px;right:2px;background:var(--org);color:#fff;font-size:9px;padding:1px 4px;border-radius:4px;font-weight:700;z-index:5;';
             if(brCrops[idx]) badge.style.display = 'block';
 
-
-
             var nameDiv = document.createElement('div');
             nameDiv.textContent = file.name;
             nameDiv.style.cssText = 'font-size:10px; font-weight:600; color:var(--t2); text-align:center; padding:6px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:var(--inp); border-top:1px solid var(--b);';
@@ -1773,7 +1765,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             div.appendChild(rejectBtn);
             div.appendChild(imgWrap);
             div.appendChild(badge);
-
             div.appendChild(modeSelect);
             div.appendChild(nameDiv);
 
@@ -1869,12 +1860,17 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('ApplyAllFit').addEventListener('click', () => {
             var v = getEl('Fit').value;
             brFiles.forEach((f, idx) => {
-                brFitModes[idx] = v;
+                // When applying 'smart' globally, clear per-image overrides so auto-suggestion
+                // can still run per-image. For any other explicit mode, lock it in.
+                if (v === 'smart') {
+                    delete brFitModes[idx];
+                } else {
+                    brFitModes[idx] = v;
+                }
                 delete brPreviewSrcCache[idx];
                 revokeResultCacheForIdx(idx);
             });
             renderGrid();
-            refreshSmartReview('mode changed');
         });
     }
 
@@ -1917,18 +1913,11 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('StartBtn').disabled=true;
         getEl('StartBtn').style.opacity='.35';
         getEl('ProgWrap').style.display='none';
-
     });
-
-    var brCropSavedScrollY = 0;
-    var brCropSourceThumb = null;
 
     function brOpenCropModal(idx) {
         brStopHoverPreview();
         brCropTargetIdx=idx;
-        // Save current scroll position and the thumb element so we can restore on close
-        brCropSavedScrollY = window.scrollY;
-        brCropSourceThumb = getEl('Grid') && getEl('Grid').children[idx] ? getEl('Grid').children[idx] : null;
         var file=brFiles[idx];
         if(!file) return;
         brCropUndoStack=[];
@@ -1945,10 +1934,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             brCropNatH=img2.naturalHeight;
             brCropOrigUrl=url;
             getEl('CropImg').src=url;
-            
-            var _cm = getEl('CropModal');
-            _cm.style.display='block';
-            _cm.scrollTop = 0;
+            getEl('CropModal').style.display='flex';
             var saved=brCrops[idx];
             brCropRotDeg = (saved && saved.rot) ? saved.rot : 0;
             getEl('CropRotVal').textContent = brCropRotDeg + '°';
@@ -2176,7 +2162,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         }
 
         getEl('CropModal').style.display='none';
-        window.scrollTo({ top: brCropSavedScrollY, behavior: 'instant' });
         brCropTargetIdx=null;
         getEl('CropImg').src = '';
         if(brCropOrigUrl) {
@@ -2201,8 +2186,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
 
     function brCloseCropModal() {
         getEl('CropModal').style.display='none';
-        // Restore scroll position so the mouse is back over the same image
-        window.scrollTo({ top: brCropSavedScrollY, behavior: 'instant' });
         brCropTargetIdx=null;
         getEl('CropImg').src = '';
         if(brCropOrigUrl) {
@@ -2213,17 +2196,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
 
     getEl('CropCloseX').addEventListener('click', brCloseCropModal);
     getEl('CropCancelBtn').addEventListener('click', brCloseCropModal);
-
-    // Prevent the page from scrolling when the backdrop area of the modal is
-    // scrolled/wheeled — the inner modal box handles its own overflow normally.
-    getEl('CropModal').addEventListener('wheel', function(e) {
-        e.preventDefault();
-    }, { passive: false });
-    getEl('CropModal').addEventListener('touchmove', function(e) {
-        // Allow touch scrolling inside the inner modal box (overflow:auto),
-        // but block it on the backdrop itself so the page doesn't scroll.
-        if (e.target === getEl('CropModal')) e.preventDefault();
-    }, { passive: false });
 
     function setRotation(deg) {
         pushUndo();
