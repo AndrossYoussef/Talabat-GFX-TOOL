@@ -647,6 +647,16 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
          flattenBackgroundToColor(stripped, bgColor, 45);
          return seamlessFit(stripped, W, H, bgColor);
       } else {
+         // Scene background (dark, gradient, or complex) — try a smart crop-to-fill,
+         // but only if the aspect ratios aren't wildly mismatched. A very tall/narrow
+         // product (e.g. a can) in a landscape frame would lose most of the subject
+         // even with the crop cap — use a contain fit instead.
+         var containScale2 = Math.min(W / stripped.width, H / stripped.height);
+         var coverScale2 = Math.max(W / stripped.width, H / stripped.height);
+         var paddingRatio2 = 1 - (containScale2 / coverScale2);
+         if (paddingRatio2 > 0.40) {
+            return fitOnBg(stripped, W, H, bgHex(bg));
+         }
          return smartSceneCrop(stripped, W, H, bg);
       }
     }
@@ -996,16 +1006,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         <span style="font-size:12px;color:var(--org);font-weight:700" id="img_SelCount">(0 selected)</span>
         <div style="margin-left:auto;display:flex;gap:8px"><button id="img_SelectAllBtn" class="btn" style="padding:6px 12px;font-size:11px">☑ All</button><button id="img_SelectNoneBtn" class="btn" style="padding:6px 12px;font-size:11px">☐ None</button><button id="img_ClearBtn" class="btn btn-stop" style="padding:6px 12px;font-size:11px">✕ Clear</button></div>
       </div>
-      <div id="img_SmartReview" style="display:none;margin:0 0 1rem;padding:12px 16px;border:1px solid var(--b2);border-radius:12px;background:linear-gradient(110deg,rgba(32,28,34,.96),rgba(24,28,35,.96));box-shadow:0 8px 24px rgba(0,0,0,.18);">
-        <div style="display:flex;align-items:center;gap:10px;min-height:28px;flex-wrap:wrap;">
-          <strong style="font-size:13px;display:flex;align-items:center;gap:7px;white-space:nowrap;"><span style="color:#ff75c8;font-size:15px;">●</span> Smart Review</strong>
-          <span id="img_SmartPass" style="background:rgba(34,197,94,.18);color:#4ade80;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;">0 pass</span>
-          <span id="img_SmartReviewCount" style="background:rgba(234,179,8,.18);color:#facc15;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;">0 review</span>
-          <span id="img_SmartReject" style="background:rgba(239,68,68,.18);color:#fb7185;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;">0 reject</span>
-          <span id="img_SmartReviewStatus" style="margin-left:auto;color:var(--t2);font-size:12px;">Ready</span>
-        </div>
-        <div id="img_SmartReviewDetails" style="display:none;margin-top:8px;color:var(--t2);font-size:11px;line-height:1.4;"></div>
-      </div>
+
       <div class="settings-grid">
         <div><label class="field-label">Fit mode</label><div style="display:flex;gap:6px"><select id="img_Fit" class="fi" style="flex:1"><option value="smart" selected>🤖 Smart Auto</option><option value="fit">Fit</option><option value="fill">Fill</option></select><button id="img_ApplyAllFit" type="button" class="btn" title="Apply this mode to all loaded images (per-image override still works)" style="padding:9px 10px;font-size:11px;white-space:nowrap">⇩ All</button></div></div>
         <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option></select></div>
@@ -1023,7 +1024,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
           <button id="img_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
           <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;"><input type="text" id="img_Search" class="fi-text" placeholder="🔎 Search files by name..." style="flex:1;min-width:180px;padding:8px 12px;font-size:12px;"><select id="img_ReviewFilter" class="fi" title="Show images by Smart Review status" style="width:160px;padding:8px 10px;font-size:12px;"><option value="all">All review states</option><option value="review">Review only</option><option value="reject">Rejected only</option></select><button id="img_SearchSelectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Select shown</button><button id="img_SearchDeselectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Deselect shown</button></div><div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;"><input type="text" id="img_Search" class="fi-text" placeholder="🔎 Search files by name..." style="flex:1;min-width:180px;padding:8px 12px;font-size:12px;"><button id="img_SearchSelectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Select shown</button><button id="img_SearchDeselectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Deselect shown</button></div><div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
       <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
     </div>
   </div>
@@ -1136,20 +1137,20 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     </div>
   </div>
 
-  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:12px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:min(700px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); box-sizing:border-box; overflow:auto; backdrop-filter:blur(8px); pointer-events:none;">
-    <div style="font-size:10px; font-weight:700; color:var(--t2); margin-bottom:8px; text-align:center; text-transform:uppercase; letter-spacing:1px;">Before / After Preview</div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
-      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
+  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:16px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:min(920px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); box-sizing:border-box; overflow:auto; backdrop-filter:blur(8px); pointer-events:none;">
+    <div style="font-size:10px; font-weight:700; color:var(--t2); margin-bottom:10px; text-align:center; text-transform:uppercase; letter-spacing:1px;">Before / After Preview</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%;">
+      <div style="position:relative; width:100%; aspect-ratio:3/2; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 8px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
         <img id="hpBefore" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain;">
       </div>
-      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <div style="position:absolute; top:4px; left:4px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
+      <div style="position:relative; width:100%; aspect-ratio:3/2; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; top:6px; left:6px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 8px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
         <img id="hpAfter" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:none;">
         <div id="hpLoading" style="position:absolute; inset:0; background:rgba(40,40,55,0.9); display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:600; color:var(--t1); border-radius:8px;"><span style="font-size:18px;">🪄</span> Processing...</div>
       </div>
     </div>
-    <div id="hpFileName" style="margin-top:8px; font-size:12px; font-weight:600; color:var(--t1); text-align:center; word-break:break-all; line-height:1.4;"></div>
+    <div id="hpFileName" style="margin-top:10px; font-size:12px; font-weight:600; color:var(--t1); text-align:center; word-break:break-all; line-height:1.4;"></div>
   </div>
 
   <div id="guidelinesOverlay" class="mockup-overlay">
@@ -1470,145 +1471,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     var brCropDragging=false, brCropDragX=0, brCropDragY=0, brCropOffSX=0, brCropOffSY=0, brCropActivePtr=null;
     var processedBlobs = [];
     var brSearchTerm = '';
-    var brReviewFilter = 'all';
-    var brReviewStatuses = {};
 
-
-    // Smart Review for Menu Images. It is intentionally local and deterministic:
-    // every mode change starts a new run, and stale asynchronous results are ignored.
-    var smartReviewRun = 0;
-    var smartReviewTimer = null;
-
-    function smartReviewModeLabel(mode) {
-        return mode === 'fill' ? 'Fill' : mode === 'fit' ? 'Fit' : 'Smart Auto';
-    }
-
-    function smartReviewEffectiveMode(idx) {
-        return brFitModes[idx] || getEl('Fit').value || 'smart';
-    }
-
-    function smartReviewOne(file, mode) {
-        return new Promise(function(resolve) {
-            var url = URL.createObjectURL(file), img = new Image();
-            img.onload = function() {
-                URL.revokeObjectURL(url);
-                var w = img.naturalWidth || 0, h = img.naturalHeight || 0;
-                if (!w || !h) return resolve({ status: 'reject', reason: 'Could not decode the image' });
-                var ratio = w / h, targetRatio = targetW / targetH;
-                var ratioGap = Math.max(ratio, targetRatio) / Math.min(ratio, targetRatio);
-                if (w < 360 || h < 240) return resolve({ status: 'reject', reason: 'Source is too small for the 810×540 output' });
-                if (w < targetW || h < targetH) return resolve({ status: 'review', reason: 'Source will be upscaled' });
-                if (mode === 'fill' && ratioGap > 1.18) return resolve({ status: 'review', reason: 'Fill crops a substantial part of this aspect ratio' });
-                if (mode === 'smart' && ratioGap > 1.45) return resolve({ status: 'review', reason: 'Smart Auto needs a crop decision for this aspect ratio' });
-                resolve({ status: 'pass', reason: 'Dimensions and mode are within the normal range' });
-            };
-            img.onerror = function() { URL.revokeObjectURL(url); resolve({ status: 'reject', reason: 'Could not decode the image' }); };
-            img.src = url;
-        });
-    }
-
-    function smartReviewEscape(value) {
-        return String(value == null ? '' : value).replace(/[&<>\"']/g, function(ch) { return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]; });
-    }
-
-    function smartReviewRender(counts, details, running, modeText, results) {
-        var panel = document.getElementById('img_SmartReview');
-        if (!panel) return;
-        panel.style.display = brFiles.length ? 'block' : 'none';
-        document.getElementById('img_SmartPass').textContent = counts.pass + ' pass';
-        document.getElementById('img_SmartReviewCount').textContent = counts.review + ' review';
-        document.getElementById('img_SmartReject').textContent = counts.reject + ' reject';
-        var status = document.getElementById('img_SmartReviewStatus');
-        status.textContent = running ? ('Re-reviewing ' + brFiles.length + ' images in the background') : ('Reviewed ' + brFiles.length + ' images — ' + modeText);
-        status.style.color = running ? 'var(--org)' : 'var(--t2)';
-        if (running) brReviewStatuses = {};
-        else if (results && results.length) results.forEach(function(item) { brReviewStatuses[item.idx] = item.status; });
-        filterGrid();
-        brFiles.forEach(function(file, idx) {
-            var badge = document.getElementById('img_smart_review_badge_' + idx);
-            var item = results && results[idx];
-            if (!item && brReviewStatuses[idx]) item = { status: brReviewStatuses[idx] };
-            if (!badge) return;
-            if (running) {
-                badge.textContent = 'CHECKING';
-                badge.style.background = '#b45309';
-                badge.style.borderColor = '#fff';
-                badge.style.display = 'block';
-            } else if (item) {
-                badge.textContent = item.status === 'pass' ? 'PASS' : item.status === 'review' ? 'REVIEW' : 'REJECT';
-                badge.style.background = item.status === 'pass' ? '#15803d' : item.status === 'review' ? '#a16207' : '#b91c1c';
-                badge.style.borderColor = item.status === 'pass' ? '#86efac' : item.status === 'review' ? '#fde047' : '#fca5a5';
-                badge.style.display = 'block';
-            } else {
-                badge.style.display = 'none';
-            }
-        });
-        var detail = document.getElementById('img_SmartReviewDetails');
-        if (!running && details.length) {
-            var groups = {};
-            details.forEach(function(x) { groups[x.reason] = (groups[x.reason] || 0) + 1; });
-            detail.textContent = Object.keys(groups).slice(0, 3).map(function(k) { return groups[k] + '× ' + k; }).join('  ·  ');
-            detail.style.display = 'block';
-        } else {
-            detail.style.display = 'none';
-        }
-    }
-
-    function refreshSmartReview(reason, onlyIdx) {
-        if (toolPrefix !== 'img') return;
-        clearTimeout(smartReviewTimer);
-        smartReviewTimer = setTimeout(async function() {
-            var run = ++smartReviewRun;
-            var counts = { pass: 0, review: 0, reject: 0 }, details = [];
-            if (!brFiles.length) { smartReviewRender(counts, details, false, 'Ready', []); return; }
-
-            // A per-image mode edit must not put the whole batch into CHECKING or
-            // decode every source again. Only the edited image is re-reviewed.
-            if (typeof onlyIdx === 'number' && onlyIdx >= 0 && onlyIdx < brFiles.length) {
-                var targetBadge = document.getElementById('img_smart_review_badge_' + onlyIdx);
-                delete brReviewStatuses[onlyIdx];
-                if (targetBadge) {
-                    targetBadge.textContent = 'CHECKING';
-                    targetBadge.style.background = '#b45309';
-                    targetBadge.style.borderColor = '#fff';
-                    targetBadge.style.display = 'block';
-                }
-                filterGrid();
-                var targetMode = smartReviewEffectiveMode(onlyIdx);
-                var targetResult = await smartReviewOne(brFiles[onlyIdx], targetMode);
-                if (run !== smartReviewRun) return;
-                brReviewStatuses[onlyIdx] = targetResult.status;
-
-                var targetedResults = new Array(brFiles.length);
-                var modes = {};
-                brFiles.forEach(function(file, idx) {
-                    var statusValue = brReviewStatuses[idx];
-                    if (statusValue && counts[statusValue] !== undefined) {
-                        counts[statusValue]++;
-                        if (statusValue !== 'pass') details.push({ file: file, idx: idx, status: statusValue, reason: idx === onlyIdx ? targetResult.reason : '' });
-                        targetedResults[idx] = { file: file, idx: idx, mode: smartReviewEffectiveMode(idx), status: statusValue, reason: idx === onlyIdx ? targetResult.reason : '' };
-                    }
-                    var m = smartReviewEffectiveMode(idx);
-                    modes[m] = (modes[m] || 0) + 1;
-                });
-                var targetedModeText = Object.keys(modes).map(function(m) { return modes[m] + ' ' + smartReviewModeLabel(m); }).join(', ');
-                smartReviewRender(counts, details, false, targetedModeText || 'Smart Auto', targetedResults);
-                return;
-            }
-
-            smartReviewRender(counts, details, true, '', null);
-            var results = await Promise.all(brFiles.map(function(file, idx) {
-                var mode = smartReviewEffectiveMode(idx);
-                return smartReviewOne(file, mode).then(function(result) { return { file: file, idx: idx, mode: mode, status: result.status, reason: result.reason }; });
-            }));
-            if (run !== smartReviewRun) return;
-            results.forEach(function(r) { counts[r.status]++; if (r.status !== 'pass') details.push(r); });
-            var modes = {};
-            brFiles.forEach(function(_, idx) { var m = smartReviewEffectiveMode(idx); modes[m] = (modes[m] || 0) + 1; });
-            var modeText = Object.keys(modes).map(function(m) { return modes[m] + ' ' + smartReviewModeLabel(m); }).join(', ');
-            smartReviewRender(counts, details, false, modeText || 'Smart Auto', results);
-        }, reason === 'mode changed' || reason === 'per-image mode changed' ? 40 : 120);
-    }
+    function refreshSmartReview() { /* Smart Review removed */ }
 
     function revokeResultCacheEntry(k) {
         try { URL.revokeObjectURL(brPreviewResultCache[k]); } catch(e) {}
@@ -1899,10 +1763,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             badge.style.cssText = 'display:none;position:absolute;top:2px;right:2px;background:var(--org);color:#fff;font-size:9px;padding:1px 4px;border-radius:4px;font-weight:700;z-index:5;';
             if(brCrops[idx]) badge.style.display = 'block';
 
-            var reviewBadge = document.createElement('div');
-            reviewBadge.id = `${toolPrefix}_smart_review_badge_${idx}`;
-            reviewBadge.textContent = '… Reviewing';
-            reviewBadge.style.cssText = 'display:none;position:absolute;top:5px;bottom:auto;left:50%;transform:translateX(-50%);background:#b45309;color:#fff;font-size:10px;line-height:1;padding:4px 8px;border:1px solid #fff;border-radius:5px;font-weight:900;letter-spacing:.35px;min-width:52px;text-align:center;white-space:nowrap;text-shadow:0 1px 1px rgba(0,0,0,.65);box-shadow:0 2px 5px rgba(0,0,0,.75);z-index:6;pointer-events:none;';
+
 
             var nameDiv = document.createElement('div');
             nameDiv.textContent = file.name;
@@ -1912,7 +1773,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             div.appendChild(rejectBtn);
             div.appendChild(imgWrap);
             div.appendChild(badge);
-            imgWrap.appendChild(reviewBadge);
+
             div.appendChild(modeSelect);
             div.appendChild(nameDiv);
 
@@ -1972,9 +1833,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         if (!grid) return;
         Array.from(grid.children).forEach(function(div) {
             var searchMatch = !brSearchTerm || (div.dataset.name || '').indexOf(brSearchTerm) !== -1;
-            var idx = parseInt(div.dataset.idx, 10);
-            var reviewMatch = brReviewFilter === 'all' || brReviewStatuses[idx] === brReviewFilter;
-            div.style.display = (searchMatch && reviewMatch) ? '' : 'none';
+            div.style.display = searchMatch ? '' : 'none';
         });
     }
 
@@ -1984,13 +1843,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             filterGrid();
         });
     }
-    if (getEl('ReviewFilter')) {
-        getEl('ReviewFilter').addEventListener('change', function() {
-            brReviewFilter = this.value;
-            filterGrid();
-        });
-    }
-
     if (getEl('SearchSelectBtn')) {
         getEl('SearchSelectBtn').addEventListener('click', function() {
             brFiles.forEach(function(file, idx) {
@@ -2065,8 +1917,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('StartBtn').disabled=true;
         getEl('StartBtn').style.opacity='.35';
         getEl('ProgWrap').style.display='none';
-        smartReviewRun++;
-        smartReviewRender({pass:0,review:0,reject:0}, [], false, 'Ready');
+
     });
 
     function brOpenCropModal(idx) {
@@ -2088,6 +1939,9 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             brCropNatH=img2.naturalHeight;
             brCropOrigUrl=url;
             getEl('CropImg').src=url;
+            var sbw = window.innerWidth - document.documentElement.clientWidth;
+            document.body.style.paddingRight = sbw + 'px';
+            document.body.style.overflow='hidden';
             getEl('CropModal').style.display='flex';
             var saved=brCrops[idx];
             brCropRotDeg = (saved && saved.rot) ? saved.rot : 0;
@@ -2316,6 +2170,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         }
 
         getEl('CropModal').style.display='none';
+        document.body.style.overflow='';
+        document.body.style.paddingRight='';
         brCropTargetIdx=null;
         getEl('CropImg').src = '';
         if(brCropOrigUrl) {
@@ -2340,6 +2196,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
 
     function brCloseCropModal() {
         getEl('CropModal').style.display='none';
+        document.body.style.overflow='';
+        document.body.style.paddingRight='';
         brCropTargetIdx=null;
         getEl('CropImg').src = '';
         if(brCropOrigUrl) {
