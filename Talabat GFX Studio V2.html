@@ -450,12 +450,31 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     }
     
     function stripWhiteBorder(canvas) {
+        // Finds the tightest bounding box around non-white content and crops to it.
+        // Uses a true per-pixel content bbox (like trimContentMargin) rather than an
+        // edge-by-edge full-row/full-column scan: the old approach required an ENTIRE
+        // row/column to be pure white before trimming past it, so a single stray
+        // non-white pixel near one edge (a faint shadow, a reflection, a compression
+        // artifact) — even if it's clearly still "background" — would halt that edge's
+        // scan immediately while the opposite edge kept trimming freely. That produced
+        // lopsided crops (tight on one side, a leftover white margin on the other),
+        // which downstream centering logic then centers as if it were real content —
+        // pushing the actual subject off-center in the final image.
         var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, data = ctx.getImageData(0, 0, w, h).data, WHITE = 242;
-        function isWhiteRow(y) { for (var x = 0; x < w; x++) { var i = (y * w + x) * 4; if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) return false; } return true; }
-        function isWhiteCol(x) { for (var y = 0; y < h; y++) { var i = (y * w + x) * 4; if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) return false; } return true; }
-        var top = 0, bottom = h - 1, left = 0, right = w - 1;
-        while (top < h - 1 && isWhiteRow(top)) top++; while (bottom > top && isWhiteRow(bottom)) bottom--;
-        while (left < w - 1 && isWhiteCol(left)) left++; while (right > left && isWhiteCol(right)) right--;
+        var minX = w, minY = h, maxX = -1, maxY = -1;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var i = (y * w + x) * 4;
+                if (data[i] < WHITE || data[i + 1] < WHITE || data[i + 2] < WHITE) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        if (maxX < minX || maxY < minY) return { canvas: canvas, stripped: false }; // blank/all-white image
+        var top = minY, bottom = maxY, left = minX, right = maxX;
         if (top < 2 && left < 2 && bottom > h - 3 && right > w - 3) return { canvas: canvas, stripped: false };
         var cw = right - left + 1, ch = bottom - top + 1; if (cw < 10 || ch < 10) return { canvas: canvas, stripped: false };
         var out = createCanvas(cw, ch); out.getContext('2d').drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch); return { canvas: out, stripped: true };
@@ -558,12 +577,34 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       return canvas;
     }
     
-    function smartSceneCrop(srcCanvas, W, H, bg) {
+    function smartSceneCrop(srcCanvas, W, H, bg, maxCropRatio) {
       var ctx = srcCanvas.getContext('2d'), sw = srcCanvas.width, sh = srcCanvas.height, data = ctx.getImageData(0, 0, sw, sh).data;
       var cR=data[0], cG=data[1], cB=data[2], wxS=0, wyS=0, wT=0, step=Math.max(1, Math.floor(Math.min(sw,sh)/150));
       for(var y=0; y<sh; y+=step) for(var x=0; x<sw; x+=step){ var i=(y*sw+x)*4, r=data[i], g=data[i+1], b=data[i+2], a=data[i+3]; if(a<30) continue; var diff=Math.abs(r-cR)+Math.abs(g-cG)+Math.abs(b-cB); if(diff>25){ wxS+=x*diff; wyS+=y*diff; wT+=diff; } }
-      var subX = wT>0 ? wxS/wT : sw/2, subY = wT>0 ? wyS/wT : sh/2, scale = Math.max(W/sw, H/sh);
-      var dw = Math.round(sw*scale), dh = Math.round(sh*scale), dx = Math.min(0, Math.max(W-dw, Math.round(W/2 - subX*scale))), dy = Math.min(0, Math.max(H-dh, Math.round(H/2 - subY*scale)));
+      var subX = wT>0 ? wxS/wT : sw/2, subY = wT>0 ? wyS/wT : sh/2;
+      var containScale = Math.min(W/sw, H/sh), coverScale = Math.max(W/sw, H/sh);
+      // A full cover-crop (coverScale) fills the frame completely but chops off whatever
+      // doesn't fit — for a tall/narrow product shot in a squarer frame that can mean
+      // guillotining the top of a drink or the base of a cup. Cap how much gets cropped
+      // (default 18%) and fall back toward a contain-style fit for the remainder, so most
+      // of the product survives even when its proportions don't match the frame well.
+      var cap = (typeof maxCropRatio === 'number') ? maxCropRatio : 0.18;
+      var scale = coverScale;
+      if (coverScale > containScale) {
+        var fullCropFrac = 1 - (containScale / coverScale);
+        if (fullCropFrac > cap) scale = containScale / (1 - cap);
+      }
+      var dw = Math.round(sw*scale), dh = Math.round(sh*scale);
+      // Center the crop on the frame first, then only nudge toward the subject's weighted
+      // centroid within a limited radius. A raw centroid-only offset can be dragged far off
+      // to one side by shadows/reflections/garnish, pushing the subject to an edge instead of
+      // keeping it near the middle. Capping the nudge keeps the "smart" recentering subtle.
+      var dxCenter = Math.round((W - dw) / 2), dyCenter = Math.round((H - dh) / 2);
+      var dxSubject = Math.round(W / 2 - subX * scale), dySubject = Math.round(H / 2 - subY * scale);
+      var maxShiftX = Math.round(W * 0.15), maxShiftY = Math.round(H * 0.15);
+      var dxNudged = Math.max(dxCenter - maxShiftX, Math.min(dxCenter + maxShiftX, dxSubject));
+      var dyNudged = Math.max(dyCenter - maxShiftY, Math.min(dyCenter + maxShiftY, dySubject));
+      var dx = Math.min(0, Math.max(W-dw, dxNudged)), dy = Math.min(0, Math.max(H-dh, dyNudged));
       var canvas = createCanvas(W, H), octx = canvas.getContext('2d');
       octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = 'high';
       if (bg !== 'transparent') { octx.fillStyle = bgHex(bg); octx.fillRect(0, 0, W, H); }
@@ -588,10 +629,11 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
          var containScale = Math.min(W / stripped.width, H / stripped.height);
          var coverScale = Math.max(W / stripped.width, H / stripped.height);
          var paddingRatio = 1 - (containScale / coverScale);
-         if (paddingRatio > 0.35) {
+         if (paddingRatio > 0.55) {
             // Aspect ratio mismatch too severe (e.g. portrait photo into a landscape frame) —
             // a contain-fit here would produce mostly solid padding with the subject squeezed
-            // into a thin strip. Crop into the subject instead of padding around it.
+            // into a thin strip. Crop into the subject instead of padding around it (with its
+            // own internal cap on how much gets cropped — see smartSceneCrop).
             return smartSceneCrop(stripped, W, H, bg);
          }
          if (bg !== 'white') {
@@ -605,6 +647,16 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
          flattenBackgroundToColor(stripped, bgColor, 45);
          return seamlessFit(stripped, W, H, bgColor);
       } else {
+         // Scene background (dark, gradient, or complex) — try a smart crop-to-fill,
+         // but only if the aspect ratios aren't wildly mismatched. A very tall/narrow
+         // product (e.g. a can) in a landscape frame would lose most of the subject
+         // even with the crop cap — use a contain fit instead.
+         var containScale2 = Math.min(W / stripped.width, H / stripped.height);
+         var coverScale2 = Math.max(W / stripped.width, H / stripped.height);
+         var paddingRatio2 = 1 - (containScale2 / coverScale2);
+         if (paddingRatio2 > 0.40) {
+            return fitOnBg(stripped, W, H, bgHex(bg));
+         }
          return smartSceneCrop(stripped, W, H, bg);
       }
     }
@@ -672,6 +724,42 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         var out = createCanvas(cw, ch), octx = out.getContext('2d');
         octx.drawImage(canvas, x0, y0, cw, ch, 0, 0, cw, ch);
         return out;
+    }
+
+    function measureSharpness(canvas) {
+        // Cheap Laplacian-style edge-energy estimate on a sampled grid of grayscale
+        // pixels. Higher = crisper/more detail already present; lower = softer/blurrier.
+        var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+        var step = Math.max(2, Math.floor(Math.min(w, h) / 100));
+        if (w <= step * 2 || h <= step * 2) return 20; // too small to sample meaningfully — assume middling
+        var data;
+        try { data = ctx.getImageData(0, 0, w, h).data; } catch (e) { return 20; }
+        function gray(x, y) { var i = (y * w + x) * 4; return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114; }
+        var sum = 0, count = 0;
+        for (var y = step; y < h - step; y += step) {
+            for (var x = step; x < w - step; x += step) {
+                var c = gray(x, y);
+                sum += Math.abs(4 * c - gray(x - step, y) - gray(x + step, y) - gray(x, y - step) - gray(x, y + step));
+                count++;
+            }
+        }
+        return count ? sum / count : 20;
+    }
+
+    function computeAutoSharpen(canvas, upscaleRatio) {
+        // Two independent signals feed into the auto amount:
+        //  - softness: how blurry the image already measures (crisp source photos
+        //    need little to no help; already-soft ones get more)
+        //  - upscaleRatio: how much the crop forced us to stretch source pixels to
+        //    fill the target size (heavier upscale = softer result = needs more)
+        // Both are clamped so a bad measurement can't push sharpening into halo territory.
+        var sharpness = measureSharpness(canvas);
+        var softness = Math.max(0, Math.min(1, (18 - sharpness) / 18));
+        var upscaleFactor = Math.max(0, Math.min(1, ((upscaleRatio || 1) - 1) / 1.5));
+        var amount = 0.25 + 0.45 * softness + 0.35 * upscaleFactor;
+        amount = Math.max(0.2, Math.min(1.0, amount));
+        var radiusBoost = upscaleFactor > 0.3 ? 1 : 0;
+        return { amount: amount, radiusBoost: radiusBoost };
     }
 
     function unsharpMask(canvas, amount, radius) {
@@ -750,22 +838,13 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             if (opts.crop) {
                 let rot = opts.crop.rot || 0;
                 let cropRect = { x: opts.crop.x, y: opts.crop.y, w: opts.crop.w, h: opts.crop.h };
-                
+
+                // The crop rect (x,y,w,h) is captured in the crop editor AFTER rotation has
+                // already been baked into the preview image (see applyRotation() in the main
+                // thread), so it's expressed in rotated-image coordinate space. To line up,
+                // rotate the source canvas first, then crop directly — no coordinate remapping.
                 if (rot !== 0) {
-                    let origW = canvas.width, origH = canvas.height;
-                    let x = cropRect.x, y = cropRect.y, w = cropRect.w, h = cropRect.h;
                     rot = ((rot % 360) + 360) % 360;
-                    
-                    if (rot === 90) {
-                        cropRect = { x: y, y: origW - x - w, w: h, h: w };
-                    } else if (rot === 180) {
-                        cropRect = { x: origW - x - w, y: origH - y - h, w: w, h: h };
-                    } else if (rot === 270) {
-                        cropRect = { x: origH - y - h, y: x, w: h, h: w };
-                    }
-                    
-                    canvas = brCropRectCanvas(canvas, cropRect);
-                    
                     let rad = rot * Math.PI / 180;
                     let sw = canvas.width, sh = canvas.height;
                     let absSin = Math.abs(Math.sin(rad)), absCos = Math.abs(Math.cos(rad));
@@ -775,9 +854,9 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
                     rctx.rotate(rad);
                     rctx.drawImage(canvas, -sw / 2, -sh / 2);
                     canvas = rc;
-                } else {
-                    canvas = brCropRectCanvas(canvas, cropRect);
                 }
+
+                canvas = brCropRectCanvas(canvas, cropRect);
             }
             
             if (opts.trimMargin) canvas = trimContentMargin(canvas);
@@ -785,6 +864,10 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             let finalCanvas;
             var ss = (opts.superSample && opts.superSample > 1) ? opts.superSample : 1;
             var rW = opts.W * ss, rH = opts.H * ss;
+            // How much the crop's own pixels have to stretch to fill the target frame —
+            // >1 means we're enlarging beyond source detail, which is the main driver of
+            // a soft/pixelated result and feeds the auto-sharpen amount below.
+            var upscaleRatio = Math.max(opts.W / canvas.width, opts.H / canvas.height);
             if (opts.fitMode === 'smart') finalCanvas = smartAutoResize(canvas, rW, rH, opts.bg);
             else if (opts.fitMode === 'auto') finalCanvas = autoExtendResize(canvas, rW, rH, opts.bg);
             else if (opts.fitMode === 'fill') finalCanvas = coverResize(canvas, rW, rH, opts.bg);
@@ -808,8 +891,9 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             if (opts.defringe && (opts.doBgRm || opts.bg === 'transparent')) finalCanvas = defringeAndSpillSuppress(finalCanvas);
             if (opts.enhance || opts.scurve) finalCanvas = applyColorScience(finalCanvas, opts.scurve, opts.enhance);
             if (opts.sharpen) {
-                var sharpRadius = Math.max(1, Math.round(Math.min(opts.W, opts.H) / 500));
-                var sharpAmount = opts.sharpenBoost ? 0.9 : 0.5;
+                var auto = computeAutoSharpen(finalCanvas, upscaleRatio);
+                var sharpRadius = Math.max(1, Math.round(Math.min(opts.W, opts.H) / 500)) + auto.radiusBoost;
+                var sharpAmount = opts.sharpenBoost ? Math.max(0.9, auto.amount) : auto.amount;
                 finalCanvas = unsharpMask(finalCanvas, sharpAmount, sharpRadius);
             }
             
@@ -875,7 +959,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             <button id="logo_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
         </div>
         <div id="logo_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
-        <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="logo_CropModalTitle">✂️ Smart Crop</div><button id="logo_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="logo_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="logo_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="logo_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="logo_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="logo_ZoomIn" class="btn crop-icon-btn">+</button><span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="logo_FitBtn" class="btn">⛶ Fit</button><button id="logo_FillBtn" class="btn">⬛ Fill</button><button id="logo_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="logo_RotL" class="btn crop-icon-btn">↺</button><button id="logo_RotR" class="btn crop-icon-btn">↻</button><span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="logo_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="logo_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+        <div id="logo_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;margin:1rem auto;display:block;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="logo_CropModalTitle">✂️ Smart Crop</div><button id="logo_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="logo_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(55vh,420px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="logo_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="logo_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="logo_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="logo_ZoomIn" class="btn crop-icon-btn">+</button><span id="logo_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="logo_FitBtn" class="btn">⛶ Fit</button><button id="logo_FillBtn" class="btn">⬛ Fill</button><button id="logo_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="logo_RotL" class="btn crop-icon-btn">↺</button><button id="logo_RotR" class="btn crop-icon-btn">↻</button><span id="logo_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="logo_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="logo_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="logo_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="logo_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="logo_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
 
@@ -897,7 +981,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         </div>
         <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
           <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
-          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="cov_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
+          <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="cov_Enhance" checked style="accent-color:var(--org)"> 🍔 Food Enhance</label>
           
           
         </div>
@@ -907,7 +991,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             <button id="cov_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
         </div>
         <div id="cov_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
-        <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="cov_CropModalTitle">✂️ Smart Crop</div><button id="cov_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="cov_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="cov_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="cov_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="cov_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="cov_ZoomIn" class="btn crop-icon-btn">+</button><span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="cov_FitBtn" class="btn">⛶ Fit</button><button id="cov_FillBtn" class="btn">⬛ Fill</button><button id="cov_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="cov_RotL" class="btn crop-icon-btn">↺</button><button id="cov_RotR" class="btn crop-icon-btn">↻</button><span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="cov_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="cov_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+        <div id="cov_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;margin:1rem auto;display:block;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="cov_CropModalTitle">✂️ Smart Crop</div><button id="cov_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="cov_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(55vh,420px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="cov_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="cov_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="cov_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="cov_ZoomIn" class="btn crop-icon-btn">+</button><span id="cov_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="cov_FitBtn" class="btn">⛶ Fit</button><button id="cov_FillBtn" class="btn">⬛ Fill</button><button id="cov_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="cov_RotL" class="btn crop-icon-btn">↺</button><button id="cov_RotR" class="btn crop-icon-btn">↻</button><span id="cov_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="cov_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="cov_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="cov_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="cov_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="cov_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
       </div>
     </div>
   </div>
@@ -922,16 +1006,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         <span style="font-size:12px;color:var(--org);font-weight:700" id="img_SelCount">(0 selected)</span>
         <div style="margin-left:auto;display:flex;gap:8px"><button id="img_SelectAllBtn" class="btn" style="padding:6px 12px;font-size:11px">☑ All</button><button id="img_SelectNoneBtn" class="btn" style="padding:6px 12px;font-size:11px">☐ None</button><button id="img_ClearBtn" class="btn btn-stop" style="padding:6px 12px;font-size:11px">✕ Clear</button></div>
       </div>
-      <div id="img_SmartReview" style="display:none;margin:0 0 1rem;padding:12px 16px;border:1px solid var(--b2);border-radius:12px;background:linear-gradient(110deg,rgba(32,28,34,.96),rgba(24,28,35,.96));box-shadow:0 8px 24px rgba(0,0,0,.18);">
-        <div style="display:flex;align-items:center;gap:10px;min-height:28px;flex-wrap:wrap;">
-          <strong style="font-size:13px;display:flex;align-items:center;gap:7px;white-space:nowrap;"><span style="color:#ff75c8;font-size:15px;">●</span> Smart Review</strong>
-          <span id="img_SmartPass" style="background:rgba(34,197,94,.18);color:#4ade80;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;">0 pass</span>
-          <span id="img_SmartReviewCount" style="background:rgba(234,179,8,.18);color:#facc15;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;">0 review</span>
-          <span id="img_SmartReject" style="background:rgba(239,68,68,.18);color:#fb7185;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:800;">0 reject</span>
-          <span id="img_SmartReviewStatus" style="margin-left:auto;color:var(--t2);font-size:12px;">Ready</span>
-        </div>
-        <div id="img_SmartReviewDetails" style="display:none;margin-top:8px;color:var(--t2);font-size:11px;line-height:1.4;"></div>
-      </div>
+
       <div class="settings-grid">
         <div><label class="field-label">Fit mode</label><div style="display:flex;gap:6px"><select id="img_Fit" class="fi" style="flex:1"><option value="smart" selected>🤖 Smart Auto</option><option value="fit">Fit</option><option value="fill">Fill</option></select><button id="img_ApplyAllFit" type="button" class="btn" title="Apply this mode to all loaded images (per-image override still works)" style="padding:9px 10px;font-size:11px;white-space:nowrap">⇩ All</button></div></div>
         <div><label class="field-label">Background</label><select id="img_Bg" class="fi"><option value="white">White (JPG)</option><option value="black">Black (JPG)</option><option value="lightgray">Light Gray (JPG)</option><option value="mediumgray">Medium Gray (JPG)</option><option value="darkgray">Dark Gray (JPG)</option></select></div>
@@ -940,7 +1015,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       </div>
       <div class="settings-grid" style="margin-top:1rem; border-top:1px solid var(--b); padding-top:1rem;">
         <div style="grid-column: 1 / -1; margin-bottom:-5px;"><label class="field-label">🧬 Advanced Quality Pipeline</label></div>
-        <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="img_Enhance" style="accent-color:var(--org)"> 🍔 Food Enhance</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--b);border-radius:var(--rs);background:var(--inp);cursor:pointer;font-size:11px;font-weight:600"><input type="checkbox" id="img_Enhance" checked style="accent-color:var(--org)"> 🍔 Food Enhance</label>
         
         
       </div>
@@ -949,8 +1024,8 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
           <button id="img_StartBtn" disabled style="padding:12px 28px;border-radius:8px;background:linear-gradient(135deg,var(--red),var(--org));color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;opacity:.35; flex:1">⚡ Process & Download</button>
           <button id="img_StopBtn" style="display:none;padding:12px 20px;border-radius:8px;background:rgba(232,25,44,.08);color:#ff6b7a;border:1px solid rgba(232,25,44,.3);font-size:13px;font-weight:700;cursor:pointer">⏹ Stop</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;"><input type="text" id="img_Search" class="fi-text" placeholder="🔎 Search files by name..." style="flex:1;min-width:180px;padding:8px 12px;font-size:12px;"><select id="img_ReviewFilter" class="fi" title="Show images by Smart Review status" style="width:160px;padding:8px 10px;font-size:12px;"><option value="all">All review states</option><option value="review">Review only</option><option value="reject">Rejected only</option></select><button id="img_SearchSelectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Select shown</button><button id="img_SearchDeselectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Deselect shown</button></div><div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
-      <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(38vh,260px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;"><input type="text" id="img_Search" class="fi-text" placeholder="🔎 Search files by name..." style="flex:1;min-width:180px;padding:8px 12px;font-size:12px;"><button id="img_SearchSelectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Select shown</button><button id="img_SearchDeselectBtn" class="btn" style="font-size:11px;padding:8px 12px;white-space:nowrap;">Deselect shown</button></div><div id="img_Grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:6px;max-height:280px;overflow-y:auto"></div>
+      <div id="img_CropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px)"><div style="background:var(--card);border:1px solid var(--b);border-radius:14px;width:400px;max-width:90vw;margin:1rem auto;display:block;box-shadow:0 20px 50px rgba(0,0,0,0.5)"><div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid var(--b)"><div style="font-size:14px;font-weight:700" id="img_CropModalTitle">✂️ Smart Crop</div><button id="img_CropCloseX" style="background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer">✕</button></div><div style="padding:0.75rem"><div id="img_CropStage" class="crop-checkerboard" style="position:relative;width:auto;max-width:100%;height:min(55vh,420px);margin:0 auto;border-radius:10px;overflow:hidden;cursor:grab;touch-action:none;border:1px solid var(--b)"><img id="img_CropImg" draggable="false" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;user-select:none;max-width:none"><div style="position:absolute;inset:0;pointer-events:none;border:3px solid var(--org);box-shadow:0 0 0 9999px rgba(0,0,0,.45)"></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Zoom</span><button id="img_ZoomOut" class="btn crop-icon-btn">−</button><input type="range" id="img_CropZoomSlider" min="10" max="500" value="100" style="flex:1;accent-color:var(--org)"><button id="img_ZoomIn" class="btn crop-icon-btn">+</button><span id="img_CropZoomVal" style="font-size:11px;font-weight:700;color:var(--org);min-width:32px;text-align:right">100%</span></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Frame</span><div class="crop-seg"><button id="img_FitBtn" class="btn">⛶ Fit</button><button id="img_FillBtn" class="btn">⬛ Fill</button><button id="img_CenterBtn" class="btn">🎯 Center</button></div></div><div class="crop-ctrl-row"><span class="crop-ctrl-label">Rotate</span><button id="img_RotL" class="btn crop-icon-btn">↺</button><button id="img_RotR" class="btn crop-icon-btn">↻</button><span id="img_CropRotVal" style="font-size:11px;font-weight:800;color:var(--org);min-width:26px;text-align:center">0°</span><button id="img_RotReset" class="btn" style="font-size:11px;padding:6px 10px;margin-left:auto">Reset</button><button id="img_UndoBtn" class="btn crop-icon-btn">↩</button></div></div><div style="display:flex;gap:6px;padding:0 0.75rem 0.75rem"><button class="btn btn-primary" id="img_CropApplyBtn" style="flex:1">✂️ Apply Crop</button><button class="btn" id="img_CropClearBtn" style="flex:1">↺ Reset</button><button class="btn" id="img_CropCancelBtn" style="flex:1">Cancel</button></div></div></div>
     </div>
   </div>
 
@@ -1062,20 +1137,20 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     </div>
   </div>
 
-  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:12px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:min(700px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); box-sizing:border-box; overflow:auto; backdrop-filter:blur(8px); pointer-events:none;">
-    <div style="font-size:10px; font-weight:700; color:var(--t2); margin-bottom:8px; text-align:center; text-transform:uppercase; letter-spacing:1px;">Before / After Preview</div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
-      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
+  <div id="hoverPreviewTooltip" style="display:none; position:fixed; z-index:9999; background:var(--card); border:1px solid var(--b2); border-radius:12px; padding:16px; box-shadow:0 15px 40px rgba(0,0,0,0.6); width:min(920px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); box-sizing:border-box; overflow:auto; backdrop-filter:blur(8px); pointer-events:none;">
+    <div style="font-size:10px; font-weight:700; color:var(--t2); margin-bottom:10px; text-align:center; text-transform:uppercase; letter-spacing:1px;">Before / After Preview</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%;">
+      <div style="position:relative; width:100%; aspect-ratio:3/2; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-weight:800; padding:2px 8px; border-radius:4px; letter-spacing:1px; z-index:2;">BEFORE</div>
         <img id="hpBefore" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain;">
       </div>
-      <div style="position:relative; width:100%; aspect-ratio:1; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <div style="position:absolute; top:4px; left:4px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
+      <div style="position:relative; width:100%; aspect-ratio:3/2; background:repeating-conic-gradient(var(--card2) 0% 25%,var(--inp) 0% 50%) 0 0/12px 12px; border-radius:8px; border:1px solid var(--b); overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; top:6px; left:6px; background:var(--org); color:#fff; font-size:9px; font-weight:800; padding:2px 8px; border-radius:4px; letter-spacing:1px; z-index:2;">AFTER</div>
         <img id="hpAfter" style="max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; display:none;">
         <div id="hpLoading" style="position:absolute; inset:0; background:rgba(40,40,55,0.9); display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:600; color:var(--t1); border-radius:8px;"><span style="font-size:18px;">🪄</span> Processing...</div>
       </div>
     </div>
-    <div id="hpFileName" style="margin-top:8px; font-size:12px; font-weight:600; color:var(--t1); text-align:center; word-break:break-all; line-height:1.4;"></div>
+    <div id="hpFileName" style="margin-top:10px; font-size:12px; font-weight:600; color:var(--t1); text-align:center; word-break:break-all; line-height:1.4;"></div>
   </div>
 
   <div id="guidelinesOverlay" class="mockup-overlay">
@@ -1208,11 +1283,12 @@ function getWorker() {
 
 function processViaWorker(file, opts) {
     var isSvg = (file.type === 'image/svg+xml') || /\.svg$/i.test(file.name || '');
-    // For SVGs, request a specific width only — the browser preserves the source's own
-    // aspect ratio when just one dimension is given, avoiding a stretched/distorted rasterization.
+    // imageOrientation:'from-image' makes sure phone-camera photos that store an EXIF
+    // rotation flag (very common for portrait shots) get decoded already right-side-up,
+    // instead of relying on a browser default that has varied across versions.
     var bitmapPromise = (isSvg && opts.svgTargetW)
-        ? createImageBitmap(file, { resizeWidth: opts.svgTargetW, resizeQuality: 'high' }).catch(() => createImageBitmap(file))
-        : createImageBitmap(file);
+        ? createImageBitmap(file, { resizeWidth: opts.svgTargetW, resizeQuality: 'high', imageOrientation: 'from-image' }).catch(() => createImageBitmap(file, { imageOrientation: 'from-image' }))
+        : createImageBitmap(file, { imageOrientation: 'from-image' });
     return bitmapPromise.then(bitmap => {
         return new Promise((resolve, reject) => {
             const id = msgId++;
@@ -1261,7 +1337,7 @@ document.addEventListener('keydown', (e) => {
         }
         ['logo', 'cov', 'img'].forEach(prefix => {
             const modal = document.getElementById(prefix + '_CropModal');
-            if (modal && modal.style.display === 'flex') {
+            if (modal && (modal.style.display === 'flex' || modal.style.display === 'block')) {
                 document.getElementById(prefix + '_CropCancelBtn').click();
             }
         });
@@ -1303,23 +1379,11 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
             if (srcCache && srcCache[idx]) {
                 previewData = await srcCache[idx];
             } else {
-                var srcPromise = (async () => {
-                    let pf = file, scaleUsed = 1;
-                    try {
-                        const img = await createImageBitmap(file);
-                        const MAX_SIZE = 320; // smaller preview decode = noticeably snappier hover response
-                        if (img.width > MAX_SIZE || img.height > MAX_SIZE) {
-                            scaleUsed = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
-                            const c = document.createElement('canvas');
-                            c.width = img.width * scaleUsed;
-                            c.height = img.height * scaleUsed;
-                            const ctx = c.getContext('2d');
-                            ctx.drawImage(img, 0, 0, c.width, c.height);
-                            pf = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
-                        }
-                    } catch(err) {}
-                    return { file: pf, scale: scaleUsed };
-                })();
+                // Use the original file at full resolution — an earlier version pre-shrank
+                // this to a 320px thumbnail for speed, but that meant every preview went
+                // through two lossy resize+recompress passes (shrink, then crop/resize again),
+                // which visibly softened detail and shifted contrast versus the real export.
+                var srcPromise = Promise.resolve({ file: file, scale: 1 });
                 if (srcCache) srcCache[idx] = srcPromise;
                 previewData = await srcPromise;
             }
@@ -1342,7 +1406,7 @@ async function startHoverPreview(prefix, idx, file, W, H, bg, fitMode, crop, qua
                 defringe: doBgRm || (prefix === 'logo' && bg === 'transparent'),
                 trimMargin: (prefix === 'logo'),
                 sharpenBoost: (prefix === 'logo'),
-                superSample: 1, // full supersampling is for final export quality; skip it here so the preview renders fast
+                superSample: (prefix === 'logo') ? 4 : 3,
                 losslessPng: (prefix === 'logo' && document.getElementById('logo_LosslessPng') && document.getElementById('logo_LosslessPng').checked)
             });
             if (myGen !== hoverGeneration) return; // a newer hover started while this was computing — drop this result
@@ -1407,145 +1471,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
     var brCropDragging=false, brCropDragX=0, brCropDragY=0, brCropOffSX=0, brCropOffSY=0, brCropActivePtr=null;
     var processedBlobs = [];
     var brSearchTerm = '';
-    var brReviewFilter = 'all';
-    var brReviewStatuses = {};
 
-
-    // Smart Review for Menu Images. It is intentionally local and deterministic:
-    // every mode change starts a new run, and stale asynchronous results are ignored.
-    var smartReviewRun = 0;
-    var smartReviewTimer = null;
-
-    function smartReviewModeLabel(mode) {
-        return mode === 'fill' ? 'Fill' : mode === 'fit' ? 'Fit' : 'Smart Auto';
-    }
-
-    function smartReviewEffectiveMode(idx) {
-        return brFitModes[idx] || getEl('Fit').value || 'smart';
-    }
-
-    function smartReviewOne(file, mode) {
-        return new Promise(function(resolve) {
-            var url = URL.createObjectURL(file), img = new Image();
-            img.onload = function() {
-                URL.revokeObjectURL(url);
-                var w = img.naturalWidth || 0, h = img.naturalHeight || 0;
-                if (!w || !h) return resolve({ status: 'reject', reason: 'Could not decode the image' });
-                var ratio = w / h, targetRatio = targetW / targetH;
-                var ratioGap = Math.max(ratio, targetRatio) / Math.min(ratio, targetRatio);
-                if (w < 360 || h < 240) return resolve({ status: 'reject', reason: 'Source is too small for the 810×540 output' });
-                if (w < targetW || h < targetH) return resolve({ status: 'review', reason: 'Source will be upscaled' });
-                if (mode === 'fill' && ratioGap > 1.18) return resolve({ status: 'review', reason: 'Fill crops a substantial part of this aspect ratio' });
-                if (mode === 'smart' && ratioGap > 1.45) return resolve({ status: 'review', reason: 'Smart Auto needs a crop decision for this aspect ratio' });
-                resolve({ status: 'pass', reason: 'Dimensions and mode are within the normal range' });
-            };
-            img.onerror = function() { URL.revokeObjectURL(url); resolve({ status: 'reject', reason: 'Could not decode the image' }); };
-            img.src = url;
-        });
-    }
-
-    function smartReviewEscape(value) {
-        return String(value == null ? '' : value).replace(/[&<>\"']/g, function(ch) { return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]; });
-    }
-
-    function smartReviewRender(counts, details, running, modeText, results) {
-        var panel = document.getElementById('img_SmartReview');
-        if (!panel) return;
-        panel.style.display = brFiles.length ? 'block' : 'none';
-        document.getElementById('img_SmartPass').textContent = counts.pass + ' pass';
-        document.getElementById('img_SmartReviewCount').textContent = counts.review + ' review';
-        document.getElementById('img_SmartReject').textContent = counts.reject + ' reject';
-        var status = document.getElementById('img_SmartReviewStatus');
-        status.textContent = running ? ('Re-reviewing ' + brFiles.length + ' images in the background') : ('Reviewed ' + brFiles.length + ' images — ' + modeText);
-        status.style.color = running ? 'var(--org)' : 'var(--t2)';
-        if (running) brReviewStatuses = {};
-        else if (results && results.length) results.forEach(function(item) { brReviewStatuses[item.idx] = item.status; });
-        filterGrid();
-        brFiles.forEach(function(file, idx) {
-            var badge = document.getElementById('img_smart_review_badge_' + idx);
-            var item = results && results[idx];
-            if (!item && brReviewStatuses[idx]) item = { status: brReviewStatuses[idx] };
-            if (!badge) return;
-            if (running) {
-                badge.textContent = 'CHECKING';
-                badge.style.background = '#b45309';
-                badge.style.borderColor = '#fff';
-                badge.style.display = 'block';
-            } else if (item) {
-                badge.textContent = item.status === 'pass' ? 'PASS' : item.status === 'review' ? 'REVIEW' : 'REJECT';
-                badge.style.background = item.status === 'pass' ? '#15803d' : item.status === 'review' ? '#a16207' : '#b91c1c';
-                badge.style.borderColor = item.status === 'pass' ? '#86efac' : item.status === 'review' ? '#fde047' : '#fca5a5';
-                badge.style.display = 'block';
-            } else {
-                badge.style.display = 'none';
-            }
-        });
-        var detail = document.getElementById('img_SmartReviewDetails');
-        if (!running && details.length) {
-            var groups = {};
-            details.forEach(function(x) { groups[x.reason] = (groups[x.reason] || 0) + 1; });
-            detail.textContent = Object.keys(groups).slice(0, 3).map(function(k) { return groups[k] + '× ' + k; }).join('  ·  ');
-            detail.style.display = 'block';
-        } else {
-            detail.style.display = 'none';
-        }
-    }
-
-    function refreshSmartReview(reason, onlyIdx) {
-        if (toolPrefix !== 'img') return;
-        clearTimeout(smartReviewTimer);
-        smartReviewTimer = setTimeout(async function() {
-            var run = ++smartReviewRun;
-            var counts = { pass: 0, review: 0, reject: 0 }, details = [];
-            if (!brFiles.length) { smartReviewRender(counts, details, false, 'Ready', []); return; }
-
-            // A per-image mode edit must not put the whole batch into CHECKING or
-            // decode every source again. Only the edited image is re-reviewed.
-            if (typeof onlyIdx === 'number' && onlyIdx >= 0 && onlyIdx < brFiles.length) {
-                var targetBadge = document.getElementById('img_smart_review_badge_' + onlyIdx);
-                delete brReviewStatuses[onlyIdx];
-                if (targetBadge) {
-                    targetBadge.textContent = 'CHECKING';
-                    targetBadge.style.background = '#b45309';
-                    targetBadge.style.borderColor = '#fff';
-                    targetBadge.style.display = 'block';
-                }
-                filterGrid();
-                var targetMode = smartReviewEffectiveMode(onlyIdx);
-                var targetResult = await smartReviewOne(brFiles[onlyIdx], targetMode);
-                if (run !== smartReviewRun) return;
-                brReviewStatuses[onlyIdx] = targetResult.status;
-
-                var targetedResults = new Array(brFiles.length);
-                var modes = {};
-                brFiles.forEach(function(file, idx) {
-                    var statusValue = brReviewStatuses[idx];
-                    if (statusValue && counts[statusValue] !== undefined) {
-                        counts[statusValue]++;
-                        if (statusValue !== 'pass') details.push({ file: file, idx: idx, status: statusValue, reason: idx === onlyIdx ? targetResult.reason : '' });
-                        targetedResults[idx] = { file: file, idx: idx, mode: smartReviewEffectiveMode(idx), status: statusValue, reason: idx === onlyIdx ? targetResult.reason : '' };
-                    }
-                    var m = smartReviewEffectiveMode(idx);
-                    modes[m] = (modes[m] || 0) + 1;
-                });
-                var targetedModeText = Object.keys(modes).map(function(m) { return modes[m] + ' ' + smartReviewModeLabel(m); }).join(', ');
-                smartReviewRender(counts, details, false, targetedModeText || 'Smart Auto', targetedResults);
-                return;
-            }
-
-            smartReviewRender(counts, details, true, '', null);
-            var results = await Promise.all(brFiles.map(function(file, idx) {
-                var mode = smartReviewEffectiveMode(idx);
-                return smartReviewOne(file, mode).then(function(result) { return { file: file, idx: idx, mode: mode, status: result.status, reason: result.reason }; });
-            }));
-            if (run !== smartReviewRun) return;
-            results.forEach(function(r) { counts[r.status]++; if (r.status !== 'pass') details.push(r); });
-            var modes = {};
-            brFiles.forEach(function(_, idx) { var m = smartReviewEffectiveMode(idx); modes[m] = (modes[m] || 0) + 1; });
-            var modeText = Object.keys(modes).map(function(m) { return modes[m] + ' ' + smartReviewModeLabel(m); }).join(', ');
-            smartReviewRender(counts, details, false, modeText || 'Smart Auto', results);
-        }, reason === 'mode changed' || reason === 'per-image mode changed' ? 40 : 120);
-    }
+    function refreshSmartReview() { /* Smart Review removed */ }
 
     function revokeResultCacheEntry(k) {
         try { URL.revokeObjectURL(brPreviewResultCache[k]); } catch(e) {}
@@ -1836,10 +1763,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             badge.style.cssText = 'display:none;position:absolute;top:2px;right:2px;background:var(--org);color:#fff;font-size:9px;padding:1px 4px;border-radius:4px;font-weight:700;z-index:5;';
             if(brCrops[idx]) badge.style.display = 'block';
 
-            var reviewBadge = document.createElement('div');
-            reviewBadge.id = `${toolPrefix}_smart_review_badge_${idx}`;
-            reviewBadge.textContent = '… Reviewing';
-            reviewBadge.style.cssText = 'display:none;position:absolute;top:5px;bottom:auto;left:50%;transform:translateX(-50%);background:#b45309;color:#fff;font-size:10px;line-height:1;padding:4px 8px;border:1px solid #fff;border-radius:5px;font-weight:900;letter-spacing:.35px;min-width:52px;text-align:center;white-space:nowrap;text-shadow:0 1px 1px rgba(0,0,0,.65);box-shadow:0 2px 5px rgba(0,0,0,.75);z-index:6;pointer-events:none;';
+
 
             var nameDiv = document.createElement('div');
             nameDiv.textContent = file.name;
@@ -1849,7 +1773,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             div.appendChild(rejectBtn);
             div.appendChild(imgWrap);
             div.appendChild(badge);
-            imgWrap.appendChild(reviewBadge);
+
             div.appendChild(modeSelect);
             div.appendChild(nameDiv);
 
@@ -1887,7 +1811,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             });
 
             div.addEventListener('click', () => brOpenCropModal(idx));
-            div.addEventListener('mouseenter', e => startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, !getEl('Quality'), brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked));
+            div.addEventListener('mouseenter', e => startHoverPreview(toolPrefix, idx, brFiles[idx], targetW, targetH, getEl('Bg').value, brFitModes[idx] || getEl('Fit').value, brCrops[idx], getEl('Quality') ? parseInt(getEl('Quality').value)/100 : forcedQuality, e, true, brPreviewSrcCache, brPreviewResultCache, getEl('BgRm') && getEl('BgRm').checked));
             div.addEventListener('mousemove', e => brMoveHoverPreview(e));
             div.addEventListener('mouseleave', () => {
                 brStopHoverPreview();
@@ -1909,9 +1833,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         if (!grid) return;
         Array.from(grid.children).forEach(function(div) {
             var searchMatch = !brSearchTerm || (div.dataset.name || '').indexOf(brSearchTerm) !== -1;
-            var idx = parseInt(div.dataset.idx, 10);
-            var reviewMatch = brReviewFilter === 'all' || brReviewStatuses[idx] === brReviewFilter;
-            div.style.display = (searchMatch && reviewMatch) ? '' : 'none';
+            div.style.display = searchMatch ? '' : 'none';
         });
     }
 
@@ -1921,13 +1843,6 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             filterGrid();
         });
     }
-    if (getEl('ReviewFilter')) {
-        getEl('ReviewFilter').addEventListener('change', function() {
-            brReviewFilter = this.value;
-            filterGrid();
-        });
-    }
-
     if (getEl('SearchSelectBtn')) {
         getEl('SearchSelectBtn').addEventListener('click', function() {
             brFiles.forEach(function(file, idx) {
@@ -2002,13 +1917,18 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('StartBtn').disabled=true;
         getEl('StartBtn').style.opacity='.35';
         getEl('ProgWrap').style.display='none';
-        smartReviewRun++;
-        smartReviewRender({pass:0,review:0,reject:0}, [], false, 'Ready');
+
     });
+
+    var brCropSavedScrollY = 0;
+    var brCropSourceThumb = null;
 
     function brOpenCropModal(idx) {
         brStopHoverPreview();
         brCropTargetIdx=idx;
+        // Save current scroll position and the thumb element so we can restore on close
+        brCropSavedScrollY = window.scrollY;
+        brCropSourceThumb = getEl('Grid') && getEl('Grid').children[idx] ? getEl('Grid').children[idx] : null;
         var file=brFiles[idx];
         if(!file) return;
         brCropUndoStack=[];
@@ -2025,7 +1945,10 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
             brCropNatH=img2.naturalHeight;
             brCropOrigUrl=url;
             getEl('CropImg').src=url;
-            getEl('CropModal').style.display='flex';
+            
+            var _cm = getEl('CropModal');
+            _cm.style.display='block';
+            _cm.scrollTop = 0;
             var saved=brCrops[idx];
             brCropRotDeg = (saved && saved.rot) ? saved.rot : 0;
             getEl('CropRotVal').textContent = brCropRotDeg + '°';
@@ -2253,6 +2176,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         }
 
         getEl('CropModal').style.display='none';
+        window.scrollTo({ top: brCropSavedScrollY, behavior: 'instant' });
         brCropTargetIdx=null;
         getEl('CropImg').src = '';
         if(brCropOrigUrl) {
@@ -2277,6 +2201,8 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
 
     function brCloseCropModal() {
         getEl('CropModal').style.display='none';
+        // Restore scroll position so the mouse is back over the same image
+        window.scrollTo({ top: brCropSavedScrollY, behavior: 'instant' });
         brCropTargetIdx=null;
         getEl('CropImg').src = '';
         if(brCropOrigUrl) {
@@ -2287,6 +2213,17 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
 
     getEl('CropCloseX').addEventListener('click', brCloseCropModal);
     getEl('CropCancelBtn').addEventListener('click', brCloseCropModal);
+
+    // Prevent the page from scrolling when the backdrop area of the modal is
+    // scrolled/wheeled — the inner modal box handles its own overflow normally.
+    getEl('CropModal').addEventListener('wheel', function(e) {
+        e.preventDefault();
+    }, { passive: false });
+    getEl('CropModal').addEventListener('touchmove', function(e) {
+        // Allow touch scrolling inside the inner modal box (overflow:auto),
+        // but block it on the backdrop itself so the page doesn't scroll.
+        if (e.target === getEl('CropModal')) e.preventDefault();
+    }, { passive: false });
 
     function setRotation(deg) {
         pushUndo();
@@ -2312,12 +2249,15 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
         getEl('ProgWrap').style.display='block';
         var bg = getEl('Bg').value, defaultFitMode = getEl('Fit').value;
         var quality = 1.0;
-        var isLockedQualityTool = !getEl('Quality');
         var enhance = getEl('Enhance').checked, scurve = false;
         var defringe = doBgRm || (toolPrefix === 'logo' && bg === 'transparent');
         var trimMargin = (toolPrefix === 'logo');
         var sharpenBoost = (toolPrefix === 'logo');
-        var superSample = (toolPrefix === 'logo') ? 4 : 1;
+        // Apply a light supersampled resize + unsharp pass to every tool, not just logos —
+        // photos benefit from this at least as much as flat-color logo art, and skipping it
+        // for menu/cover images was producing visibly softer output.
+        var superSample = (toolPrefix === 'logo') ? 4 : 3;
+        var sharpenOutput = true;
         var losslessPng = (toolPrefix === 'logo' && getEl('LosslessPng') && getEl('LosslessPng').checked);
 
         var total=filesToProcess.length, done=0, failed=0, zip=new JSZip(), singleBlob=null, singleName=null, usedNames={};
@@ -2366,7 +2306,7 @@ function createResizerTool(toolPrefix, targetW, targetH, forcedQuality) {
                                 W:targetW, H:targetH, bg, fitMode: itemFitMode,
                                 crop:brCrops[item.origIdx]||null,
                                 quality, doBgRm, enhance, scurve, defringe, trimMargin,
-                                sharpen: isLockedQualityTool, sharpenBoost, superSample, losslessPng,
+                                sharpen: sharpenOutput, sharpenBoost, superSample, losslessPng,
                                 svgTargetW: targetW * superSample, svgTargetH: targetH * superSample
                             });
                             let baseName = "";
@@ -2515,7 +2455,7 @@ function suggestFitMode(canvas, nw, nh, targetW, targetH, availableModes, toolPr
     if (toolPrefix === 'img' && availableModes.indexOf('fit') >= 0 && isWholeImageWhiteBg(data, w, h)) return 'fit';
 
     var preferred;
-    if (paddingRatio > 0.35) preferred = ['fill', 'smart'];
+    if (paddingRatio > 0.55) preferred = ['fill', 'smart'];
     else if (isWhiteBg) preferred = ['smart', 'fit'];
     else if (isUniform) preferred = ['smart', 'fit'];
     else preferred = ['smart', 'fill'];
@@ -2527,7 +2467,7 @@ function suggestFitMode(canvas, nw, nh, targetW, targetH, availableModes, toolPr
 }
 
 async function buildThumb(file, targetW, targetH, availableModes, toolPrefix) {
-    var bitmap = await createImageBitmap(file);
+    var bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     var nw = bitmap.width, nh = bitmap.height;
     var thumbMax = 220;
     var scale = Math.min(1, thumbMax / Math.max(nw, nh));
