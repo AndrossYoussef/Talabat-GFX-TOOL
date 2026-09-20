@@ -533,14 +533,15 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     // Replaces background pixels that are close to targetColor with the exact flat targetColor
     // (feathering near the subject edges) so the final backdrop is a single solid color grade
     // instead of keeping the original photo's soft gradient/vignette shading.
-    function flattenBackgroundToColor(canvas, targetColor, threshold) {
+    function flattenBackgroundToColor(canvas, targetColor, threshold, sourceColor) {
         var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
         var imgData = ctx.getImageData(0, 0, w, h), data = imgData.data;
-        var m = parseColorToRgb(targetColor), tr = m[0], tg = m[1], tb = m[2];
+        var target = parseColorToRgb(targetColor), source = parseColorToRgb(sourceColor || targetColor);
+        var tr = target[0], tg = target[1], tb = target[2], sr = source[0], sg = source[1], sb = source[2];
         var feather = threshold * 0.6;
         for (var i = 0; i < data.length; i += 4) {
             var r = data[i], g = data[i+1], b = data[i+2];
-            var dr = r - tr, dg = g - tg, db = b - tb;
+            var dr = r - sr, dg = g - sg, db = b - sb;
             var dist = Math.sqrt(dr*dr + dg*dg + db*db);
             if (dist <= threshold) {
                 data[i] = tr; data[i+1] = tg; data[i+2] = tb;
@@ -623,7 +624,7 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       }
       if (bgType === 'white') {
          var flatBg = bgHex(bg);
-         flattenBackgroundToColor(stripped, flatBg, 40);
+         flattenBackgroundToColor(stripped, flatBg, 40, '#FFFFFF');
          return fitOnBg(stripped, W, H, flatBg);
       } else if (bgType === 'solid') {
          var containScale = Math.min(W / stripped.width, H / stripped.height);
@@ -636,16 +637,9 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
             // own internal cap on how much gets cropped — see smartSceneCrop).
             return smartSceneCrop(stripped, W, H, bg);
          }
-         if (bg !== 'white') {
-            var solidHex = bgHex(bg);
-            flattenBackgroundToColor(stripped, solidHex, 45);
-            return fitOnBg(stripped, W, H, solidHex);
-         }
-         var ctx2 = stripped.getContext('2d'), d2 = ctx2.getImageData(0,0,stripped.width,stripped.height).data;
-         var eR=d2[0], eG=d2[1], eB=d2[2], maxC=Math.max(eR,eG,eB), minC=Math.min(eR,eG,eB), saturation=maxC>0 ? (maxC-minC)/maxC : 0;
-         var bgColor = saturation > 0.25 ? getEdgeBorderColor(stripped) : getAvgBorderColor(stripped);
-         flattenBackgroundToColor(stripped, bgColor, 45);
-         return seamlessFit(stripped, W, H, bgColor);
+         var sourceBg = getAvgBorderColor(stripped), targetBg = bgHex(bg);
+         flattenBackgroundToColor(stripped, targetBg, 45, sourceBg);
+         return seamlessFit(stripped, W, H, targetBg);
       } else {
          // Scene background (dark, gradient, or complex) — try a smart crop-to-fill,
          // but only if the aspect ratios aren't wildly mismatched. A very tall/narrow
@@ -1094,20 +1088,6 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
       </div>
       <input type="file" id="r2i_fileInput" accept=".csv,.xlsx,.xls" style="display:none">
       <div id="r2i_filepillWrap"></div>
-
-      <div style="margin-top:1.25rem;padding:14px;border:1px solid var(--b);border-radius:12px;background:var(--card2);">
-        <div style="font-weight:700;color:var(--t1);margin-bottom:6px;">Or load images from a Google Drive folder</div>
-        <div style="font-size:12px;color:var(--t2);margin-bottom:12px;">Sign in with Google, paste a folder link, and import image files automatically. Your access token stays in this browser session.</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-          <input type="text" id="r2i_googleClientId" class="fi-text" placeholder="Google OAuth Client ID">
-          <input type="url" id="r2i_driveFolderUrl" class="fi-text" placeholder="https://drive.google.com/drive/folders/...">
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button class="btn" id="r2i_driveConnectBtn">Connect Google Drive</button>
-          <button class="btn btn-primary" id="r2i_driveLoadBtn" disabled>Load images from folder</button>
-          <span id="r2i_driveStatus" style="font-size:12px;color:var(--t2);"></span>
-        </div>
-      </div>
 
       <div class="r2i-colmap" id="r2i_colmap">
         <div class="r2i-colmapfield"><label class="field-label">Sheet Tab</label><select id="r2i_sheetTab" class="fi"></select></div>
@@ -2545,117 +2525,10 @@ window.onload = function() {
   var previewBody = $('r2i_previewBody');
   var downloadPanel = $('r2i_downloadPanel');
   var readyCount = $('r2i_readyCount');
-  var driveToken = null;
-  var driveTokenClient = null;
-  var driveScriptPromise = null;
 
   function r2iEscapeHtml(s){
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
-
-  function r2iDriveStatus(message, error){
-    var el = $('r2i_driveStatus');
-    el.textContent = message;
-    el.style.color = error ? '#ff6b7a' : 'var(--t2)';
-  }
-
-  function r2iLoadGoogleIdentityScript(){
-    if(window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
-    if(driveScriptPromise) return driveScriptPromise;
-    driveScriptPromise = new Promise(function(resolve, reject){
-      var script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.onload = resolve;
-      script.onerror = function(){ reject(new Error('Google Identity Services could not be loaded.')); };
-      document.head.appendChild(script);
-    });
-    return driveScriptPromise;
-  }
-
-  function r2iExtractDriveFolderId(value){
-    try{
-      var u = new URL(value.trim());
-      if(u.hostname !== 'drive.google.com' && !u.hostname.endsWith('.google.com')) return null;
-      var match = u.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-      return match ? match[1] : null;
-    }catch(e){ return null; }
-  }
-
-  function r2iDriveApiUrl(fileId){
-    return 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) + '?alt=media';
-  }
-
-  function r2iConnectDrive(){
-    var clientId = $('r2i_googleClientId').value.trim();
-    if(!clientId){
-      r2iDriveStatus('Enter your Google OAuth Web Client ID first.', true);
-      return;
-    }
-    localStorage.setItem('talabat_drive_client_id', clientId);
-    r2iDriveStatus('Opening Google sign-in…');
-    r2iLoadGoogleIdentityScript().then(function(){
-      driveTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
-        callback: function(response){
-          if(response.error){ r2iDriveStatus('Google authorization failed: ' + response.error, true); return; }
-          driveToken = response.access_token;
-          $('r2i_driveLoadBtn').disabled = false;
-          r2iDriveStatus('Google Drive connected.');
-        }
-      });
-      driveTokenClient.requestAccessToken({prompt:'consent'});
-    }).catch(function(err){ r2iDriveStatus(err.message, true); });
-  }
-
-  function r2iListDriveImages(folderId, pageToken, allFiles){
-    var params = new URLSearchParams({
-      q: "'" + folderId + "' in parents and trashed = false and mimeType contains 'image/'",
-      fields: 'nextPageToken,files(id,name,mimeType)',
-      pageSize: '1000',
-      includeItemsFromAllDrives: 'true',
-      supportsAllDrives: 'true'
-    });
-    if(pageToken) params.set('pageToken', pageToken);
-    return fetch('https://www.googleapis.com/drive/v3/files?' + params.toString(), {
-      headers: {Authorization: 'Bearer ' + driveToken}
-    }).then(function(res){
-      return res.json().then(function(data){
-        if(!res.ok) throw new Error(data.error && data.error.message || 'Drive folder could not be listed.');
-        var files = allFiles.concat(data.files || []);
-        return data.nextPageToken ? r2iListDriveImages(folderId, data.nextPageToken, files) : files;
-      });
-    });
-  }
-
-  function r2iImportDriveFolder(){
-    if(!driveToken){ r2iDriveStatus('Connect Google Drive first.', true); return; }
-    var folderId = r2iExtractDriveFolderId($('r2i_driveFolderUrl').value);
-    if(!folderId){ r2iDriveStatus('Paste a valid Google Drive folder link.', true); return; }
-    var loadBtn = $('r2i_driveLoadBtn');
-    loadBtn.disabled = true;
-    r2iDriveStatus('Listing image files…');
-    r2iListDriveImages(folderId, null, []).then(function(files){
-      if(!files.length) throw new Error('No image files were found directly inside this folder.');
-      driveToken = driveToken;
-      r2iMappedData = files.map(function(file){
-        return {name:file.name, url:'https://drive.google.com/file/d/' + file.id + '/view'};
-      });
-      previewBody.innerHTML = r2iMappedData.slice(0,50).map(function(r,i){
-        return '<tr><td class="r2i-rownum">'+(i+1)+'</td><td>'+r2iEscapeHtml(r.name)+'</td><td>'+r2iEscapeHtml(r.url)+'</td></tr>';
-      }).join('');
-      previewWrap.classList.add('show');
-      downloadPanel.style.display = 'block';
-      readyCount.textContent = files.length + ' image' + (files.length === 1 ? '' : 's') + ' loaded from Google Drive';
-      r2iDriveStatus('Loaded ' + files.length + ' image' + (files.length === 1 ? '' : 's') + '.');
-    }).catch(function(err){ r2iDriveStatus(err.message, true); }).then(function(){ loadBtn.disabled = false; });
-  }
-
-  var savedDriveClientId = localStorage.getItem('talabat_drive_client_id');
-  if(savedDriveClientId) $('r2i_googleClientId').value = savedDriveClientId;
-  $('r2i_driveConnectBtn').addEventListener('click', r2iConnectDrive);
-  $('r2i_driveLoadBtn').addEventListener('click', r2iImportDriveFolder);
 
   dropzone.addEventListener('click', function(){ fileInput.click(); });
   dropzone.addEventListener('dragover', function(e){ e.preventDefault(); dropzone.classList.add('dragover'); });
@@ -2852,58 +2725,20 @@ window.onload = function() {
     ];
   }
 
-  function r2iDriveFileId(url){
-    try{
-      var u = new URL(url);
-      if(!/(^|\.)drive\.google\.com$|(^|\.)docs\.google\.com$/.test(u.hostname)) return null;
-      var match = u.pathname.match(/\/d\/([a-zA-Z0-9_-]+)/);
-      if(match) return match[1];
-      match = u.searchParams.get('id');
-      return match || null;
-    }catch(e){ return null; }
-  }
-
-  function r2iIsDriveFolderUrl(url){
-    return /drive\.google\.com\/(?:drive\/)?(?:u\/\d+\/)?folders\//i.test(url);
-  }
-
-  function r2iImageFetchUrls(url){
-    var urls = [url];
-    var fileId = r2iDriveFileId(url);
-    if(fileId){
-      // These endpoints work for shared/public Drive files and avoid treating
-      // a Drive preview page as an image. Private files still need OAuth.
-      urls.unshift(
-        r2iDriveApiUrl(fileId),
-        'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(fileId) + '&export=download&confirm=t',
-        'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(fileId)
-      );
-    }
-    return urls;
-  }
-
   function r2iFetchImageWithFallback(url){
-    if(r2iIsDriveFolderUrl(url)){
-      return Promise.reject(new Error('This is a Google Drive folder link, not an image link. Use individual shared image links or connect Google Drive access first.'));
-    }
-    var candidates = r2iImageFetchUrls(url);
-    var attempt = function(idx){
-      if(idx >= candidates.length) return r2iTryProxies(url);
-      var request = {mode:'cors'};
-      if(driveToken && r2iDriveFileId(url) && candidates[idx] === r2iDriveApiUrl(r2iDriveFileId(url))){
-        request.headers = {Authorization:'Bearer ' + driveToken};
-      }
-      return fetch(candidates[idx], request).then(function(res){
-        if(!res.ok) return attempt(idx + 1);
+    return fetch(url, {mode:'cors'}).then(function(res){
+      if(res.ok){
         return res.blob().then(function(blob){
           if(blob.type.indexOf('image/') === 0 || blob.size > 100){
-            return {blob: blob, via: candidates[idx] === url ? 'direct' : 'google-drive'};
+            return {blob: blob, via:'direct'};
           }
-          return attempt(idx + 1);
+          return r2iTryProxies(url);
         });
-      }).catch(function(){ return attempt(idx + 1); });
-    };
-    return attempt(0);
+      }
+      return r2iTryProxies(url);
+    }).catch(function(){
+      return r2iTryProxies(url);
+    });
   }
 
   function r2iTryProxies(url){
