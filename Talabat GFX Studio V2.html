@@ -2717,27 +2717,77 @@ window.onload = function() {
     return 'jpg';
   }
 
+  function r2iNormalizeUrl(value){
+    var raw = String(value || '').trim().replace(/^['"]|['"]$/g,'');
+    // Excel exports sometimes contain HTML-escaped ampersands or a protocol-relative URL.
+    raw = raw.replace(/&amp;/gi, '&');
+    if(raw.indexOf('//') === 0) raw = 'https:' + raw;
+    try{
+      var parsed = new URL(raw);
+      if(parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+      return parsed.href;
+    }catch(e){ return ''; }
+  }
+
   function r2iProxyUrls(url){
-    var noScheme = url.replace(/^https?:\/\//, '');
+    var normalized = r2iNormalizeUrl(url) || url;
+    var noScheme = normalized.replace(/^https?:\/\//, '');
+    var encoded = encodeURIComponent(normalized);
     return [
       'https://images.weserv.nl/?url=' + encodeURIComponent(noScheme),
-      'https://corsproxy.io/?' + encodeURIComponent(url)
+      'https://wsrv.nl/?url=' + encodeURIComponent(noScheme),
+      // corsproxy.io requires the `url` parameter; the old call omitted it.
+      'https://corsproxy.io/?url=' + encoded,
+      'https://api.allorigins.win/raw?url=' + encoded,
+      'https://cors.isomorphic-git.org/' + normalized
     ];
   }
 
+  function r2iBlobHasImageSignature(blob){
+    if(!blob || blob.size < 12) return Promise.resolve(false);
+    if((blob.type || '').toLowerCase().indexOf('image/') === 0) return Promise.resolve(true);
+    return blob.slice(0, 32).arrayBuffer().then(function(buffer){
+      var b = new Uint8Array(buffer), text = '';
+      for(var i=0; i<b.length; i++) text += String.fromCharCode(b[i]);
+      return (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) ||
+        (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) ||
+        (text.slice(0, 4) === 'GIF8') ||
+        (text.slice(0, 4) === 'RIFF' && text.slice(8, 12) === 'WEBP') ||
+        (text.slice(4, 12) === 'ftypavif');
+    }).catch(function(){ return false; });
+  }
+
+  function r2iFetchWithTimeout(url, options){
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var request = Object.assign({mode:'cors', cache:'no-store'}, options || {});
+    if(controller) request.signal = controller.signal;
+    var timer = setTimeout(function(){ if(controller) controller.abort(); }, 18000);
+    return fetch(url, request).then(function(res){
+      clearTimeout(timer);
+      return res;
+    }, function(err){
+      clearTimeout(timer);
+      throw err;
+    });
+  }
+
+  function r2iAcceptImageResponse(res, via){
+    if(!res.ok) return Promise.reject(new Error('HTTP ' + res.status));
+    return res.blob().then(function(blob){
+      return r2iBlobHasImageSignature(blob).then(function(valid){
+        if(valid) return {blob: blob, via: via};
+        return Promise.reject(new Error('Response was not an image'));
+      });
+    });
+  }
+
   function r2iFetchImageWithFallback(url){
-    return fetch(url, {mode:'cors'}).then(function(res){
-      if(res.ok){
-        return res.blob().then(function(blob){
-          if(blob.type.indexOf('image/') === 0 || blob.size > 100){
-            return {blob: blob, via:'direct'};
-          }
-          return r2iTryProxies(url);
-        });
-      }
-      return r2iTryProxies(url);
+    var normalized = r2iNormalizeUrl(url);
+    if(!normalized) return Promise.reject(new Error('Invalid or unsupported image URL'));
+    return r2iFetchWithTimeout(normalized).then(function(res){
+      return r2iAcceptImageResponse(res, 'direct');
     }).catch(function(){
-      return r2iTryProxies(url);
+      return r2iTryProxies(normalized);
     });
   }
 
@@ -2745,16 +2795,10 @@ window.onload = function() {
     var proxies = r2iProxyUrls(url);
     var attempt = function(idx){
       if(idx >= proxies.length){
-        return Promise.reject(new Error('Blocked by CORS / unreachable (direct + proxy both failed)'));
+        return Promise.reject(new Error('Blocked by CORS or unreachable: the image host rejected direct access and all fallback proxies failed'));
       }
-      return fetch(proxies[idx], {mode:'cors'}).then(function(res){
-        if(!res.ok) return attempt(idx+1);
-        return res.blob().then(function(blob){
-          if(blob.type.indexOf('image/') === 0 || blob.size > 1000){
-            return {blob: blob, via:'proxy'};
-          }
-          return attempt(idx+1);
-        });
+      return r2iFetchWithTimeout(proxies[idx]).then(function(res){
+        return r2iAcceptImageResponse(res, 'proxy');
       }).catch(function(){ return attempt(idx+1); });
     };
     return attempt(0);
