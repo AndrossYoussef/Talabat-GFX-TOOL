@@ -612,41 +612,13 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
     }
 
     function smartAutoResize(srcCanvas, W, H, bg) {
-      var result = stripWhiteBorder(srcCanvas), stripped = result.canvas, bgType = detectBgType(stripped);
-      if (bg === 'transparent') {
-         var canvas = createCanvas(W, H), ctx = canvas.getContext('2d');
-         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-         var scale = Math.min(W / stripped.width, H / stripped.height);
-         ctx.drawImage(stripped, Math.round((W - stripped.width*scale)/2), Math.round((H - stripped.height*scale)/2), Math.round(stripped.width*scale), Math.round(stripped.height*scale));
-         return canvas;
-      }
-      if (bgType === 'white') {
-         var flatBg = bgHex(bg);
-         // Only flatten genuinely white-backed artwork. Treating every light scene as
-         // white bleached food highlights and created the washed-out output shown by users.
-         var sourceBg = getAvgBorderColor(stripped), sourceRgb = parseColorToRgb(sourceBg);
-         var whiteDistance = Math.abs(sourceRgb[0]-255)+Math.abs(sourceRgb[1]-255)+Math.abs(sourceRgb[2]-255);
-         if (whiteDistance < 36) flattenBackgroundToColor(stripped, flatBg, 28, sourceBg);
-         return smartSceneCrop(stripped, W, H, bg);
-      } else if (bgType === 'solid') {
-         var containScale = Math.min(W / stripped.width, H / stripped.height);
-         var coverScale = Math.max(W / stripped.width, H / stripped.height);
-         var paddingRatio = 1 - (containScale / coverScale);
-         if (paddingRatio > 0.55) return smartSceneCrop(stripped, W, H, bg);
-         var sourceBg = getAvgBorderColor(stripped), targetBg = bgHex(bg);
-         flattenBackgroundToColor(stripped, targetBg, 45, sourceBg);
-         return seamlessFit(stripped, W, H, targetBg);
-      } else {
-         // Scene background (dark, gradient, or complex) — try a smart crop-to-fill,
-         // but only if the aspect ratios aren't wildly mismatched. A very tall/narrow
-         // product (e.g. a can) in a landscape frame would lose most of the subject
-         // even with the crop cap — use a contain fit instead.
-         var containScale2 = Math.min(W / stripped.width, H / stripped.height);
-         var coverScale2 = Math.max(W / stripped.width, H / stripped.height);
-         var paddingRatio2 = 1 - (containScale2 / coverScale2);
-         if (paddingRatio2 > 0.40) return smartSceneCrop(stripped, W, H, bg);
-         return smartSceneCrop(stripped, W, H, bg);
-      }
+      // Smart Auto is a composition operation, not a background-replacement operation.
+      // Never flatten a real photograph to the selected JPG background color: that turns
+      // gray tables white and destroys neutral objects such as aluminum cans. The frame is
+      // already guaranteed to be edge-to-edge by smartSceneCrop, so the selected color is
+      // only used behind transparent pixels.
+      var result = stripWhiteBorder(srcCanvas), stripped = result.canvas;
+      return smartSceneCrop(stripped, W, H, bg);
     }
 
     function defringeAndSpillSuppress(canvas) {
@@ -793,7 +765,9 @@ body.light-mode .card{box-shadow:0 4px 24px rgba(0,0,0,0.06)}
         }
         if (!count) return true;
         var avgSat = sumSat / count, avgBright = (sumBright / count) / 255;
-        return avgSat < 0.20 || avgBright < 0.25;
+        // Low saturation is common in gray table/can photos and is not evidence that
+        // enhancement is needed. Only touch genuinely underexposed images.
+        return avgBright < 0.25;
     }
 
     function applyColorScience(canvas, doScurve, doEnhance) {
