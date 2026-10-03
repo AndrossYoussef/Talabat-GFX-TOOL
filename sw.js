@@ -14,7 +14,7 @@
 
 /* Bump this string every time you publish a new index.html or
    image-finder.html. That is what pushes the update to users. */
-const VERSION = 'gfx-v13';
+const VERSION = 'gfx-v15';
 
 const APP_SHELL_CACHE = `app-shell-${VERSION}`;
 const RUNTIME_CACHE   = `runtime-${VERSION}`;
@@ -25,6 +25,7 @@ const RUNTIME_CACHE   = `runtime-${VERSION}`;
 const PRECACHE_URLS = [
   './',
   './index.html',
+  './Talabat%20GFX%20Studio%20V2.html',
   './image-finder.html',
   './manifest.webmanifest',
   './manifest-finder.webmanifest',
@@ -80,7 +81,7 @@ self.addEventListener('install', (event) => {
       .filter(Boolean);
     if (failed.length) console.warn('[sw] precache misses (non-fatal):', failed);
 
-    for (const required of ['./index.html', './image-finder.html']) {
+    for (const required of ['./index.html', './Talabat%20GFX%20Studio%20V2.html', './image-finder.html']) {
       if (!(await cache.match(required))) {
         throw new Error(`[sw] FATAL: ${required} could not be precached`);
       }
@@ -127,8 +128,9 @@ self.addEventListener('fetch', (event) => {
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       // Resolve which page was asked for, so the right one is restored.
-      let key = './index.html';
-      if (url.pathname.endsWith('/image-finder.html')) key = './image-finder.html';
+      let key = new URL('./index.html', self.registration.scope).href;
+      if (url.pathname.endsWith('/Talabat%20GFX%20Studio%20V2.html')) key = new URL('./Talabat%20GFX%20Studio%20V2.html', self.registration.scope).href;
+      else if (url.pathname.endsWith('/image-finder.html')) key = new URL('./image-finder.html', self.registration.scope).href;
 
       try {
         const preload = await event.preloadResponse;
@@ -145,7 +147,7 @@ self.addEventListener('fetch', (event) => {
         const cached =
           (await caches.match(key)) ||
           (await caches.match(req)) ||
-          (key === './index.html' ? await caches.match('./') : null);
+          (key.endsWith('/index.html') || key.endsWith('/Talabat%20GFX%20Studio%20V2.html') ? await caches.match(new URL('./', self.registration.scope).href) : null);
         if (cached) return cached;
 
         return new Response(
